@@ -68,8 +68,11 @@ enum Paths {
         var env = ProcessInfo.processInfo.environment
         env["ENGINE_DIR"]            = engine
         env["BOTTLES_DIR"]           = bottlesDir
-        env["WINE_HOME"]             = engine + "/wine-stable"
-        env["DXVK_DIR"]              = engine + "/dxvk"
+        // NB: do NOT pin WINE_HOME / DXVK_DIR here. lib.sh resolves them from
+        // ENGINE_DIR, preferring the bundled payload and falling back to the
+        // writable per-user engine dir. Forcing them to the payload path breaks a
+        // slim build (no bundled engines), where they must resolve per-user so the
+        // on-demand download (ensure-wine-engine.sh / ensure-cli.sh) is found.
         env["LEGENDARY_CONFIG_PATH"] = legendaryConfig
         env["UNCORK_DATA"]           = data
         env["UNCORK_CACHE"]          = data + "/cache"
