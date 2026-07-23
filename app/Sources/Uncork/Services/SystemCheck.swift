@@ -11,6 +11,7 @@ enum SystemCheck {
         let group: String        // "Required" | "Graphics engine" | "Stores"
         let hint: String         // what to do / reassurance
         let command: String?     // optional shell command the user can copy
+        var installKind: String? = nil   // if set + not ready, Setup shows an Install button (wine|dxvk|gptk)
     }
 
     private static func fileExists(_ path: String) -> Bool {
@@ -29,16 +30,19 @@ enum SystemCheck {
     static func all() -> [Component] {
         let eng = Paths.engine
         let data = Paths.data
-        let wine = fileExists("\(eng)/wine-stable/bin/wine")
-        let dxvk = fileExists("\(eng)/dxvk/x64/d3d11.dll")
-        let dxmt = fileExists("\(eng)/wine-stable/lib/wine/x86_64-unix/winemetal.so")
+        // A component counts as present if it is in the bundled payload OR in the
+        // writable per-user engine dir (where on-demand installs land).
+        func present(_ rel: String) -> Bool { fileExists("\(eng)/\(rel)") || fileExists("\(data)/engine/\(rel)") }
+        let wine = present("wine-stable/bin/wine")
+        let dxvk = present("dxvk/x64/d3d11.dll")
+        let dxmt = present("wine-stable/lib/wine/x86_64-unix/winemetal.so")
         // D3DMetal (Game Porting Toolkit): the primary backend. Downloaded on
         // first store setup into the writable per-user engine dir, not bundled.
         let gptkWineRoot = "\(data)/engine/gptk/Game Porting Toolkit.app/Contents/Resources/wine"
         let gptk = fileExists("\(gptkWineRoot)/bin/wine64")
             && fileExists("\(gptkWineRoot)/lib/external/D3DMetal.framework")
         let steam = fileExists("\(Paths.steamDir)/steam.exe")
-        let legendary = fileExists("\(eng)/legendary-venv/bin/legendary")
+        let legendary = present("legendary-venv/bin/legendary")
         let epicIn = legendary && EpicAuth.isLoggedIn()
         let gogReady = GogAuth.isLoggedIn()
 
@@ -51,17 +55,18 @@ enum SystemCheck {
             Component(name: "D3DMetal (Game Porting Toolkit)", detail: "Apple's DirectX 11/12 → Metal: the primary graphics backend.",
                       ready: gptk, group: "Graphics engine",
                       hint: gptk ? "Installed (downloaded on first store setup)."
-                                 : "Downloads automatically the first time you set up a store.", command: nil),
+                                 : "Not installed. Click Install to download it now.", command: nil, installKind: "gptk"),
             Component(name: "Wine (engine)", detail: "Translates Windows APIs (no emulation).",
                       ready: wine, group: "Graphics engine",
-                      hint: wine ? "Bundled with Uncork: nothing to do." : "Missing, reinstall Uncork.", command: nil),
+                      hint: wine ? "Installed." : "Not installed. Click Install to download it now.", command: nil, installKind: "wine"),
             Component(name: "DXMT (alternative)", detail: "DirectX 11 → Metal on the bundled Wine 11: a per-game alternative to D3DMetal.",
                       ready: dxmt, group: "Graphics engine",
-                      hint: dxmt ? "Bundled: selectable per game via Compatibility profiles." : "Missing, reinstall Uncork.", command: nil),
+                      hint: dxmt ? "Installed: selectable per game via Compatibility profiles."
+                                 : "Not installed. Click Install (ships with the Wine engine).", command: nil, installKind: "wine"),
             Component(name: "DXVK (older DirectX)", detail: "DirectX 9/10/11 → Vulkan → Metal, for older titles.",
                       ready: dxvk, group: "Graphics engine",
-                      hint: dxvk ? "Bundled. Limited on Apple Silicon: MoltenVK lacks the geometry shaders DXVK needs."
-                                 : "Missing, reinstall Uncork.", command: nil),
+                      hint: dxvk ? "Installed. Limited on Apple Silicon: MoltenVK lacks the geometry shaders DXVK needs."
+                                 : "Not installed. Click Install to download it now.", command: nil, installKind: "dxvk"),
 
             Component(name: "Steam", detail: "Installed into a bottle; runs hidden in the background.",
                       ready: steam, group: "Stores",

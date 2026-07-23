@@ -5,6 +5,7 @@ import AppKit
 /// what's bundled (nothing to do), and how to get anything that isn't standard.
 struct SetupView: View {
     @State private var components = SystemCheck.all()
+    @ObservedObject private var installer = SetupInstaller.shared
     private let order = ["Required", "Graphics engine", "Stores"]
 
     var body: some View {
@@ -64,6 +65,27 @@ struct SetupView: View {
                             .buttonStyle(.plain).foregroundStyle(DS.accent)
                     }
                     .padding(.top, 3)
+                }
+                // Install button for a not-ready component that can be fetched on demand.
+                if !c.ready, let kind = c.installKind {
+                    if installer.installing == kind {
+                        HStack(spacing: 8) {
+                            ProgressView(value: installer.fraction).frame(width: 130).tint(DS.accent)
+                            Text(installer.message.isEmpty ? "Installing…" : installer.message)
+                                .font(.system(size: 11)).foregroundStyle(.secondary)
+                        }
+                        .padding(.top, 5)
+                    } else {
+                        Button { installer.install(kind) { components = SystemCheck.all() } } label: {
+                            Label("Install", systemImage: "arrow.down.circle.fill")
+                                .font(.system(size: 12, weight: .bold))
+                                .padding(.vertical, 5).padding(.horizontal, 14)
+                        }
+                        .buttonStyle(.plain).foregroundStyle(.white)
+                        .background(Capsule().fill(DS.accent))
+                        .disabled(installer.installing != nil)
+                        .padding(.top, 5)
+                    }
                 }
             }
             Spacer(minLength: 0)
