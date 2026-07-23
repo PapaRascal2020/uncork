@@ -31,7 +31,12 @@ fi
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$ROOT/app/.build/release/Uncork" "$APP/Contents/MacOS/Uncork"
-cp "$ROOT/build/Uncork.icns" "$APP/Contents/Resources/Uncork.icns"
+# App icon is tracked in assets/. Non-fatal: a missing icon just yields the default.
+if [[ -f "$ROOT/assets/Uncork.icns" ]]; then
+  cp "$ROOT/assets/Uncork.icns" "$APP/Contents/Resources/Uncork.icns"
+else
+  echo "    (no assets/Uncork.icns; app will use the default icon)"
+fi
 
 # --- Bundle the read-only payload so the app runs on ANY Mac -----------------
 # Paths.swift looks for this at Contents/Resources/uncork. Everything writable

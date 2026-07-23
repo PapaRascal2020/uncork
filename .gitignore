@@ -10,10 +10,8 @@ engine/
 *.tar.zst
 *.dmg
 
-# Build output and packaged app / build kit. Keep the one committed build asset
-# (the app icon) that package-app.sh needs.
+# Build output and packaged app / build kit.
 build/
-!build/Uncork.icns
 dist/
 
 # Third-party source + build trees (Wine, DXMT). Our own patches live in

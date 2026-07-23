@@ -62,15 +62,15 @@ tar -czf "$KIT" \
   -C "$ROOT" \
   app scripts compat wine-fixes tools docs \
   engine/wine-stable engine/wine-cef engine/dxvk engine/legendary-venv engine/gogdl-venv \
-  build/Uncork.icns \
-  BUILD-KIT-README.md CLAUDE.md 2>/dev/null || {
+  assets/Uncork.icns \
+  BUILD-KIT-README.md 2>/dev/null || {
     # GNU tar has no -s; fall back to a transform (Linux) or a staged prefix.
     tar -czf "$KIT" --transform='s,^,uncork-build-kit/,' \
       --exclude='.git' --exclude='.DS_Store' --exclude='app/.build' --exclude='app/.swiftpm' \
       -C "$ROOT" \
       app scripts compat wine-fixes tools docs \
       engine/wine-stable engine/wine-cef engine/dxvk engine/legendary-venv engine/gogdl-venv \
-      build/Uncork.icns BUILD-KIT-README.md CLAUDE.md
+      assets/Uncork.icns BUILD-KIT-README.md
   }
 
 echo "==> Done: $KIT ($(du -h "$KIT" | cut -f1))"
