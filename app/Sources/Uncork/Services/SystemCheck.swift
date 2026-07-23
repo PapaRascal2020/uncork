@@ -35,7 +35,11 @@ enum SystemCheck {
         func present(_ rel: String) -> Bool { fileExists("\(eng)/\(rel)") || fileExists("\(data)/engine/\(rel)") }
         let wine = present("wine-stable/bin/wine")
         let dxvk = present("dxvk/x64/d3d11.dll")
+        // DXMT ships inside the Wine engine: the d3d11/dxgi builtins in wine-stable
+        // ARE the DXMT ones (Gcenx bundles DXMT). Some builds also carry the unix
+        // bridge (winemetal.so); accept either as "DXMT present".
         let dxmt = present("wine-stable/lib/wine/x86_64-unix/winemetal.so")
+                || present("wine-stable/lib/wine/x86_64-windows/d3d11.dll")
         // D3DMetal (Game Porting Toolkit): the primary backend. Downloaded on
         // first store setup into the writable per-user engine dir, not bundled.
         let gptkWineRoot = "\(data)/engine/gptk/Game Porting Toolkit.app/Contents/Resources/wine"
