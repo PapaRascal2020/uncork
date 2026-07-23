@@ -173,6 +173,8 @@ require_rosetta() {
 }
 
 require_wine() {
+  # Fetch wine-stable on demand if it is not present (slim build / source clone).
+  [[ -x "$WINE_BIN" ]] || bash "$PROJECT_ROOT/scripts/ensure-wine-engine.sh" wine-stable >&2 || true
   [[ -x "$WINE_BIN" ]] || die "Wine not found at $WINE_BIN. Run scripts/01-create-bottle.sh (or set WINE_URL/WINE_HOME)."
 }
 
