@@ -30,6 +30,23 @@ Where a store or game has a real Mac version, Uncork uses it (for example the
 native Battle.net and itch.io clients). Where it does not, Uncork runs the Windows
 version through Wine.
 
+## Controllers
+
+Uncork enables gamepad support automatically in every bottle (games see the
+controller through SDL). What matters is whether macOS itself recognizes your
+controller, because Uncork can only pass on a controller that macOS already sees.
+
+- **These work:** a genuine Xbox Series/One controller (wired or Bluetooth,
+  macOS 14+), a PlayStation DualSense or DualShock 4, any MFi controller, and
+  8BitDo pads in their Xinput mode.
+- **These do not:** third-party Xbox controllers that only Windows supports, for
+  example the Turtle Beach Recon. macOS has no driver for them, so no app (Uncork
+  or otherwise) can use them. A hardware adapter (MayFlash Magic-NS, 8BitDo
+  wireless adapter) can convert one to a controller macOS accepts.
+- **Not detected?** Launch the game first, then unplug and replug the controller:
+  macOS sometimes misses one that was connected before launch. If it still is not
+  seen in a browser gamepad tester, macOS does not support it.
+
 ## Philosophy
 
 Mac gaming's bottleneck is no longer raw capability. The translation layers (Wine,

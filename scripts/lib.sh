@@ -190,6 +190,21 @@ wine_run() {
 # per-game isolated prefixes and custom (non-store) games. A fresh bottle picks
 # up DXMT automatically because the graphics DLLs are builtins in the ENGINE;
 # we just init the prefix and drop the winemetal bridge PE into its system32.
+# Enable gamepad support in a Wine prefix. macOS has no hidraw backend (that is
+# Linux only), so controllers must go through SDL, which winebus leaves OFF by
+# default, so no game sees a gamepad. Turn SDL on and hidraw off. Idempotent via a
+# per-prefix marker. Args: <prefix> <wine-binary>
+enable_gamepad() {
+  local prefix="$1" wine="${2:-$WINE_BIN}"
+  [[ -f "$prefix/.uncork-gamepad" ]] && return 0
+  for kv in "Enable SDL:1" "DisableHidraw:1"; do
+    WINEPREFIX="$prefix" WINEDEBUG=-all "$wine" reg add \
+      "HKLM\\System\\CurrentControlSet\\Services\\winebus" \
+      /v "${kv%%:*}" /t REG_DWORD /d "${kv##*:}" /f >/dev/null 2>&1 || true
+  done
+  touch "$prefix/.uncork-gamepad" 2>/dev/null || true
+}
+
 ensure_bottle() {
   if [[ ! -d "$BOTTLE/drive_c" ]]; then
     log "Initializing bottle: $BOTTLE_NAME"
@@ -203,6 +218,7 @@ ensure_bottle() {
   local wm="$WINE_HOME/lib/wine/x86_64-windows/winemetal.dll"
   [[ -f "$wm" && -d "$BOTTLE/drive_c/windows/system32" ]] && \
     cp -f "$wm" "$BOTTLE/drive_c/windows/system32/winemetal.dll" 2>/dev/null || true
+  enable_gamepad "$BOTTLE" "$WINE_BIN"
 }
 
 # True only if a runtime install is ACTIVELY holding this bottle's lock. The lock

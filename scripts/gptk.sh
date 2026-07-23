@@ -46,6 +46,7 @@ ensure_gptk_prefix() {
     WINEPREFIX="$GPTK_PREFIX" WINEDEBUG=-all "$GPTK_WINE" wineboot --init >/dev/null 2>&1 || true
     WINEPREFIX="$GPTK_PREFIX" "$GPTK_WINESERVER" -w 2>/dev/null || true
   fi
+  enable_gamepad "$GPTK_PREFIX" "$GPTK_WINE"
 }
 
 # Install the BASELINE runtime libraries into a store's D3DMetal prefix so most
