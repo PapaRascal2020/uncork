@@ -20,7 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Never interrupt a running game; quit immediately and leave Steam alone.
         guard RunStore.shared.states.allSatisfy({ $0.value != .running }) else { return .terminateNow }
         // Nothing to wind down if the prewarmed Steam client isn't actually up.
-        guard RunStore.isRunning("Steam/steam.exe") else { return .terminateNow }
+        guard RunStore.isRunning("[Ss]team.steam\\.exe") else { return .terminateNow }
 
         NSApp.windows.forEach { $0.orderOut(nil) }        // clean disappear, not a freeze
         ShutdownHUD.show(title: "Closing Uncork", detail: "Shutting down Steam…")
@@ -34,7 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if (try? p.run()) != nil { p.waitUntilExit() }
             // Give the client a moment to actually exit (bounded: never hang quit).
             let deadline = Date().addingTimeInterval(6)
-            while Date() < deadline && RunStore.isRunning("Steam/steam.exe") { usleep(200_000) }
+            while Date() < deadline && RunStore.isRunning("[Ss]team.steam\\.exe") { usleep(200_000) }
             DispatchQueue.main.async {
                 ShutdownHUD.hide()
                 NSApp.reply(toApplicationShouldTerminate: true)

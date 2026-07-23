@@ -33,7 +33,7 @@ enum SteamService {
     static func isRunning() -> Bool {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/pgrep")
-        p.arguments = ["-f", "Steam/steam.exe"]
+        p.arguments = ["-f", "[Ss]team.steam\\.exe"]   // match / or \ (Steam re-execs with a Windows path)
         p.standardOutput = Pipe(); p.standardError = Pipe()
         do { try p.run(); p.waitUntilExit() } catch { return false }
         return p.terminationStatus == 0

@@ -213,7 +213,10 @@ steam_logged_in() {
   [[ "$last" == *"Logged On"* ]]
 }
 
-if ! pgrep -f 'Steam/steam.exe' >/dev/null 2>&1; then
+# Match either slash direction: after bootstrap, Steam's persistent process can
+# show a Windows-style path (Steam\steam.exe), which a '/'-only pattern misses,
+# making us start a SECOND Steam (steamwebhelper conflict). '.' matches / or \.
+if ! pgrep -f '[Ss]team.steam\.exe' >/dev/null 2>&1; then
   status "Starting Steam…"
   log "Starting Steam (hidden)…"
   # -cef-disable-gpu: software CEF rendering, avoids the steamwebhelper GPU crash

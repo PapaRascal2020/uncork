@@ -8,6 +8,15 @@
     "hud": false
   },
   "games": {
+    "227300": {
+      "title": "Euro Truck Simulator 2",
+      "engine": "Prism3D (Direct3D 11 / OpenGL, 64-bit)",
+      "backend": "d3dmetal",
+      "winver": "win10",
+      "launch_args": "-rdevice dx11",
+      "verdict": "works",
+      "notes": "Force the DirectX 11 renderer with -rdevice dx11 so the game draws through D3DMetal. Its default/OpenGL path fails under Wine on macOS with 'no valid graphics device was found' (seen on M1). Confirmed working on Apple Silicon with this flag. If it still errors, delete config.cfg in the game's Documents folder (it can cache a bad renderer) and relaunch."
+    },
     "312990": {
       "title": "The Expendabros",
       "engine": "Unity 4 (Direct3D 9, 32-bit)",

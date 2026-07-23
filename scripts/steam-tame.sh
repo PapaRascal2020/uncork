@@ -17,7 +17,7 @@ STEAMAPPS="$STEAM_BOTTLE/drive_c/Program Files (x86)/Steam/steamapps"
 [[ -d "$STEAMAPPS" ]] || exit 0   # nothing installed yet
 
 # Bail if Steam is up; never edit its files underneath it.
-if pgrep -f "Steam/steam.exe" >/dev/null 2>&1; then exit 0; fi
+if pgrep -f '[Ss]team.steam\.exe' >/dev/null 2>&1; then exit 0; fi
 
 changed=0
 for m in "$STEAMAPPS"/appmanifest_*.acf; do
