@@ -19,12 +19,16 @@ source "$(dirname "${BASH_SOURCE[0]}")/gptk.sh"   # D3DMetal launch helpers
 # effectively pure Python, so we run it with the system python3 + the bundled
 # packages on PYTHONPATH, invoking the console script directly (shebang ignored).
 # This works on any Mac with no venv rebuild and no network.
-LEG_SCRIPT="$ENGINE_DIR/legendary-venv/bin/legendary"
-LEG_SP="$ENGINE_DIR/legendary-venv/lib/python3.9/site-packages"
-# Pin to the CLT python (3.9.x): the bundled packages include cpython-39 .so
-# extensions, so a different python3 on PATH (e.g. Homebrew 3.12) would break.
+# Prefer a bundled venv (payload); else the per-user one; provision it on demand
+# if neither exists (a source clone ships no engine/). The python version dir is
+# globbed, so it works whichever CLT python built the venv.
+LEG_VENV="$ENGINE_DIR/legendary-venv"
+[[ -x "$LEG_VENV/bin/legendary" ]] || LEG_VENV="$UNCORK_DATA_DIR/engine/legendary-venv"
+[[ -x "$LEG_VENV/bin/legendary" ]] || bash "$(dirname "${BASH_SOURCE[0]}")/ensure-cli.sh" legendary >&2 || true
+LEG_SCRIPT="$LEG_VENV/bin/legendary"
+LEG_SP="$(ls -d "$LEG_VENV"/lib/python*/site-packages 2>/dev/null | head -1)"
 PY="/usr/bin/python3"
-[[ -f "$LEG_SCRIPT" && -d "$LEG_SP" ]] || die "legendary not bundled ($LEG_SCRIPT)."
+[[ -f "$LEG_SCRIPT" && -d "$LEG_SP" ]] || die "legendary unavailable (could not provision it)."
 [[ -x "$PY" ]] || die "Python 3 not found. Install the Xcode Command Line Tools: xcode-select --install"
 LEG=(env "PYTHONPATH=$LEG_SP" "$PY" "$LEG_SCRIPT")
 

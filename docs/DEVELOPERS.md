@@ -215,6 +215,10 @@ on first use into the writable per-user engine dir by `scripts/ensure-wine-engin
 resolver in `lib.sh` prefers a bundled engine and falls back to the per-user dir, so
 the same code path works bundled or slim. The default build still bundles both.
 
+DXVK and the Epic/GOG clients are also fetched on demand by `scripts/ensure-cli.sh`
+(DXVK from the upstream release; `legendary` and `gogdl` installed with the system
+`python3`), so a bare source clone builds a fully working app without the build kit.
+
 The two on-demand assets (`wine-cef` and the Steam client snapshot) are hosted on
 GitHub releases; `scripts/upload-assets.sh [all|wine-cef|steam]` packages and uploads
 them (needs `gh` authenticated with write access to the repo).

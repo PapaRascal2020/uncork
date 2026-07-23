@@ -78,7 +78,8 @@ find_bin() { for c in "$PROJECT_ROOT/tools/$1" "/opt/homebrew/bin/$1" "/usr/loca
 # DXVK (D3D9/10/11 → Vulkan). Extracted tree with x64/ and x32/ DLL dirs.
 # Default is mainline DXVK; set DXVK_DIR to a macOS/MoltenVK fork (e.g. Gcenx
 # DXVK-macOS) if mainline fails against MoltenVK. DLLs to install + override:
-DXVK_DIR="${DXVK_DIR:-$ENGINE_DIR/dxvk}"
+if [[ -d "$ENGINE_DIR/dxvk/x64" ]]; then DXVK_DIR="${DXVK_DIR:-$ENGINE_DIR/dxvk}"
+else DXVK_DIR="${DXVK_DIR:-$UNCORK_DATA_DIR/engine/dxvk}"; fi   # per-user when not bundled (fetched on demand)
 DXVK_DLLS=(dxgi d3d11 d3d10core d3d9 d3d8)
 
 # VKD3D-Proton (D3D12 → Vulkan) is DEFERRED: not needed for D3D11 titles, and its

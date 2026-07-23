@@ -63,18 +63,22 @@ cp -R "$ROOT/docs"    "$PAYLOAD/docs"     # in-app Developer Guide reads docs/DE
 # WINE_CEF_URL, which must be hosted). Default (unset) bundles them, so the app
 # works fully offline out of the box and nothing regresses.
 SLIM="${UNCORK_SLIM:-0}"
+# Copy an engine component if it exists. A source clone has no engine/ dir (it is
+# gitignored), so a missing component is skipped with a note, never fatal. The
+# build kit ships these; wine-stable and wine-cef also download on first use.
+bundle_engine() { # <name>
+  if [[ -d "$ROOT/engine/$1" ]]; then cp -R "$ROOT/engine/$1" "$PAYLOAD/engine/$1"
+  else echo "    (engine/$1 not present, skipped)"; fi
+}
 if [[ "$SLIM" == 1 ]]; then
   echo "    [slim] omitting wine-stable + wine-cef (downloaded on first use)"
 else
-  cp -R "$ROOT/engine/wine-stable"    "$PAYLOAD/engine/wine-stable"
+  bundle_engine wine-stable
+  bundle_engine wine-cef
 fi
-cp -R "$ROOT/engine/dxvk"           "$PAYLOAD/engine/dxvk"
-[[ -d "$ROOT/engine/legendary-venv" ]] && cp -R "$ROOT/engine/legendary-venv" "$PAYLOAD/engine/legendary-venv"
-#   - gogdl-venv     GOG CLI (gogdl), run relocatably like legendary (system python3 + PYTHONPATH)
-[[ -d "$ROOT/engine/gogdl-venv" ]] && cp -R "$ROOT/engine/gogdl-venv" "$PAYLOAD/engine/gogdl-venv"
-#   - wine-cef       CrossOver 24 Wine (SikarugirCX) for CEF clients (Ubisoft/EA); its
-#     dylib chain is fed from wine-stable/lib at runtime (libinotify at its rpath).
-[[ "$SLIM" != 1 && -d "$ROOT/engine/wine-cef" ]] && cp -R "$ROOT/engine/wine-cef" "$PAYLOAD/engine/wine-cef"
+bundle_engine dxvk             # legacy DX fallback
+bundle_engine legendary-venv   # Epic CLI (run relocatably; see below)
+bundle_engine gogdl-venv       # GOG CLI (gogdl)
 # GPTk Wine + D3DMetal (the primary graphics backend) is NOT bundled; the setup
 # wizard downloads it on first run (ensure-engine.sh) into a writable per-user dir
 # (~/Library/Application Support/Uncork/engine/gptk). Keeps the app lean.

@@ -396,6 +396,7 @@ bash scripts/package-app.sh      # -&gt; build/Uncork.app</code></pre>
       <section id="slim">
         <h2>Slim builds and on-demand engines</h2>
         <p><code>UNCORK_SLIM=1 bash scripts/package-app.sh</code> omits the two big Wine engines (<code>wine-stable</code>, <code>wine-cef</code>, roughly 1.8 GB) from the bundle. They are fetched on first use into the writable per-user engine dir by <code>ensure-wine-engine.sh</code> (<code>wine-stable</code> from the public Gcenx release; <code>wine-cef</code> from <code>WINE_CEF_URL</code>). The <code>lib.sh</code> resolver prefers a bundled engine and falls back to the per-user dir, so the same code path works bundled or slim. The default build still bundles both.</p>
+        <p>DXVK and the Epic/GOG clients are also fetched on demand by <code>scripts/ensure-cli.sh</code> (DXVK from the upstream release; <code>legendary</code> and <code>gogdl</code> installed with the system <code>python3</code>), so a bare source clone builds a fully working app without the build kit.</p>
         <p>The two on-demand assets (<code>wine-cef</code> and the Steam client snapshot) live on GitHub releases; <code>scripts/upload-assets.sh [all|wine-cef|steam]</code> packages and uploads them (needs <code>gh</code> authenticated with write access to the repo).</p>
       </section>
 

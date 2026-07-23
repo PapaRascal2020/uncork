@@ -18,10 +18,15 @@ source "$(dirname "${BASH_SOURCE[0]}")/gptk.sh"   # D3DMetal launch helpers
 # build machine's path, so we run gogdl with the system CLT python3 (3.9) + the
 # bundled packages on PYTHONPATH, invoking the console script directly. Works on
 # any Mac with the Xcode Command Line Tools, no venv rebuild, no network.
-GOG_SCRIPT="$ENGINE_DIR/gogdl-venv/bin/gogdl"
-GOG_SP="$ENGINE_DIR/gogdl-venv/lib/python3.9/site-packages"
+# Prefer a bundled venv (payload); else the per-user one; provision on demand if
+# neither exists (a source clone ships no engine/). Python version dir is globbed.
+GOG_VENV="$ENGINE_DIR/gogdl-venv"
+[[ -x "$GOG_VENV/bin/gogdl" ]] || GOG_VENV="$UNCORK_DATA_DIR/engine/gogdl-venv"
+[[ -x "$GOG_VENV/bin/gogdl" ]] || bash "$(dirname "${BASH_SOURCE[0]}")/ensure-cli.sh" gogdl >&2 || true
+GOG_SCRIPT="$GOG_VENV/bin/gogdl"
+GOG_SP="$(ls -d "$GOG_VENV"/lib/python*/site-packages 2>/dev/null | head -1)"
 PY="/usr/bin/python3"
-[[ -f "$GOG_SCRIPT" && -d "$GOG_SP" ]] || die "gogdl not bundled ($GOG_SCRIPT)."
+[[ -f "$GOG_SCRIPT" && -d "$GOG_SP" ]] || die "gogdl unavailable (could not provision it)."
 [[ -x "$PY" ]] || die "Python 3 not found. Install the Xcode Command Line Tools: xcode-select --install"
 GOGDL=(env "PYTHONPATH=$GOG_SP" "$PY" "$GOG_SCRIPT")
 

@@ -12,6 +12,9 @@
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+# DXVK is fetched on demand if it is not bundled (a source clone ships no engine/).
+bash "$(dirname "${BASH_SOURCE[0]}")/ensure-cli.sh" dxvk >&2 || true
+
 require_wine
 query="${1:?usage: apply-dxvk.sh <game folder name substring>}"
 
