@@ -1,0 +1,66 @@
+{
+  "_comment": "Uncork compatibility profiles: the Mac analog of Steam-on-Linux's per-game Proton-version picker. A profile is a matched bundle of (Wine engine + graphics backend), because on Apple Silicon the two are ABI-coupled (D3DMetal is locked to GPTk Wine; DXMT's winemetal.so is locked to its Wine build). Users pick a profile per game; play.sh maps profile to backend (engine follows from backend). Read by scripts/compatdb.sh and the app (CompatProfiles.swift). Data-driven: updates without rebuilding the app.",
+  "_schema": "profiles: { id: { label, backend(d3dmetal|dxmt|dxvk), bundled(bool), summary, best_for, warn(optional), engine_id(d3dmetal downloadable engines), download(url) } }. 'auto' resolves at launch (GPTk+D3DMetal if installed, else Wine11+DXMT). engine_id/download drive scripts/ensure-profile.sh (Steam-style 'download an engine version').",
+  "schema": 1,
+  "default": "auto",
+  "profiles": {
+    "auto": {
+      "label": "Automatic (recommended)",
+      "backend": "",
+      "bundled": true,
+      "summary": "Let Uncork choose the best engine for this game.",
+      "best_for": "Most games - picks Game Porting Toolkit + D3DMetal when available, otherwise Wine 11 + DXMT.",
+      "engine": ""
+    },
+    "gptk": {
+      "label": "Game Porting Toolkit (D3D11/12)",
+      "backend": "d3dmetal",
+      "bundled": true,
+      "engine_id": "gptk",
+      "download": "https://github.com/Gcenx/game-porting-toolkit/releases/download/Game-Porting-Toolkit-3.0-3/game-porting-toolkit-3.0-3.tar.xz",
+      "summary": "Apple's D3DMetal on GPTk Wine: DirectX 11/12 straight to Metal.",
+      "best_for": "Modern 64-bit games (most AAA + Unity/Unreal D3D11/12 titles).",
+      "engine": "gptk"
+    },
+    "gptk-2.1": {
+      "label": "Game Porting Toolkit 2.1 (older D3DMetal)",
+      "backend": "d3dmetal",
+      "bundled": false,
+      "engine_id": "gptk-2.1",
+      "download": "https://github.com/Gcenx/game-porting-toolkit/releases/download/Game-Porting-Toolkit-2.1/game-porting-toolkit-2.1.tar.xz",
+      "summary": "An older D3DMetal + Wine, in its own bottle.",
+      "best_for": "Try if a game regressed on the current GPTk - the Mac version of 'roll back the Proton version'.",
+      "warn": "Older D3DMetal - may not run on the newest macOS; use only if the current profile fails.",
+      "engine": "gptk"
+    },
+    "gptk-1.1": {
+      "label": "Game Porting Toolkit 1.1 (oldest D3DMetal)",
+      "backend": "d3dmetal",
+      "bundled": false,
+      "engine_id": "gptk-1.1",
+      "download": "https://github.com/Gcenx/game-porting-toolkit/releases/download/Game-Porting-Toolkit-1.1/game-porting-toolkit-1.1.tar.xz",
+      "summary": "The original D3DMetal + Wine 7.7, in its own bottle.",
+      "best_for": "Last resort for older games that only worked on early GPTk.",
+      "warn": "Oldest D3DMetal - likely won't run on recent macOS; try only if everything else fails.",
+      "engine": "gptk"
+    },
+    "wine11-dxmt": {
+      "label": "Wine 11 + DXMT",
+      "backend": "dxmt",
+      "bundled": true,
+      "summary": "DXMT (DirectX 11 to Metal) on the bundled Wine 11 + the Steam client.",
+      "best_for": "D3D11 games that misbehave on D3DMetal, or that need the live Steam client (SteamStub DRM).",
+      "engine": "wine-stable"
+    },
+    "wine11-dxvk": {
+      "label": "Wine 11 + DXVK",
+      "backend": "dxvk",
+      "bundled": true,
+      "summary": "DXVK (DirectX 9/10/11 to Vulkan to Metal via MoltenVK).",
+      "best_for": "Older DirectX 9/10 games.",
+      "warn": "On Apple Silicon MoltenVK lacks the geometryShader feature DXVK requires, so this often can't get a GPU - try it, but D3DMetal/DXMT are usually the working choices.",
+      "engine": "wine-stable"
+    }
+  },
+  "_engine_note": "engine ids reference wine-fixes/engines.json; CEF launchers (Ubisoft/EA) map to uncork-* engines via engines.json \"suits\" + their launch scripts"
+}

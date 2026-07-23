@@ -1,0 +1,25 @@
+# Recipe: uncork-1.0-wine-11.0  (Wine 11 from CrossOver 26, for 64-bit CEF launchers/games)
+# Build with:  wine-fixes/build-engine.sh wine-fixes/recipes/uncork-1.0-wine-11.0.recipe
+ENGINE_ID="uncork-1.0-wine-11.0"
+SOURCE_URL="https://media.codeweavers.com/pub/crossover/source/crossover-sources-26.0.0.tar.gz"
+
+# Ordered patch set (see wine-fixes/patches/). Build-compat first, then the CEF bridge.
+PATCHES="wine-macos-build/0001-asm-cfi-apple \
+wine-macos-build/0002-add-distversion-h \
+wine-macos-build/0003-soname-libvulkan \
+winemac-cross-process/0001-winemac-iosurface-consumer"
+
+# Mac-gaming lean build: no X11, no Vulkan (we use DXMT/D3DMetal→Metal), no freetype
+# (CEF renders text via Skia; the GDI-freetype warning is benign), x86_64 native
+# (matches the Rosetta target), both PE arches (i386 for 32-bit games, x86_64 for 64-bit).
+CONFIGURE_FLAGS="--enable-archs=i386,x86_64 --disable-winedbg --without-x --without-vulkan --without-freetype --disable-tests --host=x86_64-apple-darwin"
+
+# After build: graft the DXMT (producer) + winemac (consumer) cross-process bridge and
+# codesign the modified .so's. (winemetal.so IOSurface producer comes from the DXMT
+# build; the winemac consumer patch is applied above.)
+post_build() {
+  local stage="$1"
+  echo "post_build: TODO graft 64-bit DXMT (d3d11/dxgi/d3d10core/winemetal) + winemetal.so into $stage,"
+  echo "           set WINEDLLOVERRIDES=mscoree=n;mshtml=  and OPENSSL_ia32cap for EA, add active"
+  echo "           'localhost' hosts entries, then codesign the grafted .so's."
+}

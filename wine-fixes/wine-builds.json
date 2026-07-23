@@ -1,0 +1,96 @@
+{
+  "_comment": "Downloadable standalone Wine builds for Uncork's Wine Manager (the 'Wine Builds' tab, Heroic-style). These are whole Wine trees (bin/lib/share) fetched on demand into engine/wine-builds/<id>. Distinct from compat/profiles.json 'Engines' (matched Wine+backend the game pickers use): a Wine Build is a raw runtime you can trial when a game/launcher misbehaves (e.g. the EA app was tried on wine-staging-11.13). Data-driven: add a build here, it appears in the manager without an app rebuild. Installed via scripts/ensure-wine-build.sh.",
+  "_schema": "builds.<id>: { name, version, channel(stable|staging|devel|crossover|gptk), url, size_mb, dxmt(bool), summary, notes }",
+  "builds": {
+    "wine-stable-11.0": {
+      "name": "Wine Stable",
+      "version": "11.0",
+      "channel": "stable",
+      "url": "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.0_1/wine-stable-11.0_1-osx64.tar.xz",
+      "archive_subtree": "Wine Stable.app/Contents/Resources/wine",
+      "size_mb": 180,
+      "dxmt": true,
+      "summary": "Gcenx Wine Stable 11.0 with DXMT, Uncork's default engine base.",
+      "notes": "The bundled default. Most Steam/Epic/GOG games run here."
+    },
+    "wine-staging-11.13": {
+      "name": "Wine Staging",
+      "version": "11.13",
+      "channel": "staging",
+      "url": "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.13/wine-staging-11.13-osx64.tar.xz",
+      "archive_subtree": "Wine Staging.app/Contents/Resources/wine",
+      "size_mb": 183,
+      "dxmt": true,
+      "summary": "Gcenx Wine Staging 11.13 with DXMT, extra experimental patches over stable.",
+      "notes": "Try when a game regresses on stable. (For the EA app: runs, but does not clear EA's macOS gRPC-BGS wall, see wine-fixes/diagnostics/grpc-localhost.)"
+    },
+    "wine-devel-11.13": {
+      "name": "Wine Devel",
+      "version": "11.13",
+      "channel": "devel",
+      "url": "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.13/wine-devel-11.13-osx64.tar.xz",
+      "archive_subtree": "Wine Devel.app/Contents/Resources/wine",
+      "size_mb": 181,
+      "dxmt": true,
+      "summary": "Gcenx Wine Development 11.13 with DXMT, newest upstream, least stable.",
+      "notes": "Bleeding-edge upstream Wine. Use to check whether a fresh upstream fix helps a title."
+    },
+    "wine-staging-11.10": {
+      "name": "Wine Staging 11.10",
+      "version": "11.10",
+      "channel": "staging",
+      "url": "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.10/wine-staging-11.10-osx64.tar.xz",
+      "archive_subtree": "Wine Staging.app/Contents/Resources/wine",
+      "size_mb": 183,
+      "dxmt": true,
+      "summary": "Gcenx Wine Staging 11.10 with DXMT, an older staging build.",
+      "notes": "Older version. Roll back to it when a game regressed after a newer Wine."
+    },
+    "wine-staging-11.9": {
+      "name": "Wine Staging 11.9",
+      "version": "11.9",
+      "channel": "staging",
+      "url": "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.9/wine-staging-11.9-osx64.tar.xz",
+      "archive_subtree": "Wine Staging.app/Contents/Resources/wine",
+      "size_mb": 183,
+      "dxmt": true,
+      "summary": "Gcenx Wine Staging 11.9 with DXMT, an older staging build.",
+      "notes": "Older version, kept for rolling back a title that broke on a newer Wine."
+    },
+    "wine-staging-11.8": {
+      "name": "Wine Staging 11.8",
+      "version": "11.8",
+      "channel": "staging",
+      "url": "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.8/wine-staging-11.8-osx64.tar.xz",
+      "archive_subtree": "Wine Staging.app/Contents/Resources/wine",
+      "size_mb": 183,
+      "dxmt": true,
+      "summary": "Gcenx Wine Staging 11.8 with DXMT, an older staging build.",
+      "notes": "Older version, kept for rolling back a title that broke on a newer Wine."
+    },
+    "wine-staging-11.7": {
+      "name": "Wine Staging 11.7",
+      "version": "11.7",
+      "channel": "staging",
+      "url": "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.7/wine-staging-11.7-osx64.tar.xz",
+      "archive_subtree": "Wine Staging.app/Contents/Resources/wine",
+      "size_mb": 183,
+      "dxmt": true,
+      "summary": "Gcenx Wine Staging 11.7 with DXMT, an older staging build.",
+      "notes": "Older version, kept for rolling back a title that broke on a newer Wine."
+    },
+    "wine-staging-11.6": {
+      "name": "Wine Staging 11.6",
+      "version": "11.6",
+      "channel": "staging",
+      "url": "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.6_1/wine-staging-11.6_1-osx64.tar.xz",
+      "archive_subtree": "Wine Staging.app/Contents/Resources/wine",
+      "size_mb": 183,
+      "dxmt": true,
+      "summary": "Gcenx Wine Staging 11.6 with DXMT, the oldest staging build Gcenx still hosts.",
+      "notes": "Oldest available. Gcenx prunes older majors (10.x and earlier are no longer hosted)."
+    }
+  },
+  "_dxmt_note": "Gcenx macOS_Wine_builds bundle DXMT (D3D11 to Metal) since Wine 10; the d3d11/dxgi builtins are the DXMT ones.",
+  "_install_dir": "engine/wine-builds/<id> (writable per-user data dir at runtime)"
+}

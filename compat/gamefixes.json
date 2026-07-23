@@ -1,0 +1,58 @@
+{
+  "_comment": "Uncork protonfixes-for-Mac database. One source of truth for per-game fixes, read by scripts/autoconfigure.sh (applies fixes), scripts/play.sh (launch exe/env/args/HUD), and the app (GameCompat verdicts). Data-driven so it updates without rebuilding the app. Seeded from Metal testing (ProtonDB is a hint, not gospel: Metal is not Vulkan). Modeled on Proton's protonfixes.",
+  "_schema_fields": "Per game: title, engine, backend, verdict(works|needs-work|unsupported|untested), launch_exe (relative), winetricks[] (runtime verbs), env{} (extra env vars, e.g. {\"MTL_HUD_ENABLED\":\"1\"}), launch_args (string appended to the exe), hud (bool: default Metal perf HUD), isolated_prefix (bool: give this game its own bottle, for titles whose winetricks/winver tweaks would disturb the shared bottle), notes. Per-user toggles (e.g. HUD on/off) live in the app's overrides.json and win over the DB.",
+  "schema": 1,
+  "defaults": {
+    "backend": "d3dmetal",
+    "verdict": "untested",
+    "hud": false
+  },
+  "games": {
+    "312990": {
+      "title": "The Expendabros",
+      "engine": "Unity 4 (Direct3D 9, 32-bit)",
+      "backend": "dxvk",
+      "verdict": "unsupported",
+      "notes": "Hardest case on Apple Silicon: 32-bit + Direct3D 9. (1) D3DMetal is D3D10-12 only and DXMT is D3D11 only, so neither handles D3D9. (2) wined3d D3D9-to-OpenGL crashes on macOS 26 (GL_INVALID_FRAMEBUFFER_OPERATION + alloc_pages_vprot assert). (3) DXVK d3d9-to-Vulkan is blocked by the geometryShader wall: DXVK v3.0.1 and v1.10.3 both require the Vulkan geometryShader feature, which MoltenVK cannot provide (Metal has no geometry shaders), giving 'No adapters found' then DxvkError. The exe is 32-bit so DXVK needs x32 DLLs (play.sh auto-detects). -force-d3d11 is ignored: Unity 4 has no D3D11 path and falls to OpenGL 2.1 (winemac GL over Metal), which fails ARB shader compile (InternalErrorShader, crash). 32-bit DXMT: only a mismatched dxmt-v0.80 exists (the working 64-bit DXMT is a local build with an incompatible winemetal.so, cannot mix); a uniform swap to v0.80 still hits the OpenGL fallback since -force-d3d11 does not apply. Possible paths forward (all unbuilt): d3d9on12-to-D3DMetal chain, a geometryShader-relaxed DXVK build, or a matched 32-bit DXMT. Not representative: 64-bit D3D11/12 titles work via DXMT/D3DMetal (RISK, Euro Truck confirmed). Also shows no window on Linux/Proton, so the game itself is broken, not a Mac/Uncork limitation. General rule: Linux/Proton is the floor, if a game fails there it will not work on Mac (strictly harder); check ProtonDB before investing."
+    },
+    "945360": {
+      "title": "Among Us",
+      "engine": "Unity 2022.3 (D3D11, 32-bit)",
+      "backend": "dxmt",
+      "launch_args": "-force-d3d11-no-singlethreaded -screen-fullscreen 0",
+      "verdict": "works",
+      "notes": "32-bit Unity. Reaches main menu on the 32-bit DXMT build. REQUIRES -force-d3d11-no-singlethreaded: without it Unity's multithreaded D3D11 device creation spins on DXMT (100% CPU, stuck at 'GfxDevice: creating device client', no window). -screen-fullscreen 0 keeps it windowed for a reliable first-run. Earlier 'could not load d3d11.dll (80029c4a)' was not a DXMT crash: no i386 DXMT existed and a stale DXVK-era 'native' registry override forced a non-builtin d3d11. Fixed by the i386 DXMT build + the DXMT path clearing stale native overrides + forcing d3d11/dxgi/d3d10core=builtin in play.sh."
+    },
+    "960090": {
+      "title": "Bloons TD 6",
+      "engine": "Unity",
+      "backend": "dxmt",
+      "verdict": "works",
+      "notes": "Unity D3D11 -> DXMT/Metal at feature level 11.1. Verified reaches menu. (DXMT lacks ID3D11Fence -> one harmless 0x80004005, falls back.)"
+    },
+    "1128810": {
+      "title": "RISK: Global Domination",
+      "engine": "Unity",
+      "backend": "dxmt",
+      "verdict": "works",
+      "notes": "Unity D3D11 -> DXMT. Requires the leftover wined3d/DXVK d3d dlls to be stripped from system32/syswow64 (autoconfigure does this) so the 'native' override falls through to the DXMT builtin."
+    },
+    "359870": {
+      "title": "FINAL FANTASY FFX/FFX-2 HD Remaster",
+      "engine": "Custom",
+      "backend": "dxmt",
+      "verdict": "works",
+      "launch_exe": "FFX&X-2_LAUNCHER.exe",
+      "winetricks": ["dotnet40"],
+      "notes": ".NET/WPF launcher fails on Wine-Mono ('fatal error in the mono runtime'); needs real .NET 4.0 (dotnet40 is enough; dotnet48 not required). IMPORTANT: the winetricks .NET install spins forever in ngen/mscorsvw on Wine -> the installer must cap/kill mscorsvw (see autoconfigure ngen handling). Launch via the launcher, then pick FFX or FFX-2."
+    },
+    "355790": {
+      "title": "Styx: Shards of Darkness",
+      "engine": "UE4",
+      "backend": "dxmt",
+      "verdict": "needs-work",
+      "launch_exe": "Styx2/Binaries/Win64/Styx2-Win64-Shipping.exe",
+      "notes": "UE4 4.13, feature level 11 + GEOMETRY SHADERS. Works on Proton because Vulkan has geometry shaders; Metal does not, so DXMT must emulate them (or use D3DMetal). Launch the Win64 shipping exe directly, not the Styx2.exe launcher. Not yet working on Metal."
+    }
+  }
+}

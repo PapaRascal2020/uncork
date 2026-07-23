@@ -1,0 +1,16 @@
+# Uncork wine-macos-build patch 0003 — define SONAME_LIBVULKAN under --without-vulkan
+#
+# WHY: CrossOver's dlls/win32u/vulkan.c ("CW HACK 25909") references SONAME_LIBVULKAN
+# unconditionally, but configuring with --without-vulkan leaves it #undef'd in
+# config.h, so win32u.so fails to compile:
+#   win32u/vulkan.c: use of undeclared identifier 'SONAME_LIBVULKAN'
+# win32u.so is a hard dependency of winemac.so, so the whole graphics driver fails.
+# We don't use Vulkan for the CEF/DXMT path, so a harmless value is fine.
+#
+# ACTION (post-configure): in the build tree's include/config.h, replace
+#   /* #undef SONAME_LIBVULKAN */
+# with
+#   #define SONAME_LIBVULKAN "libvulkan.1.dylib"
+# (build-engine.sh does this automatically after ./configure when --without-vulkan.)
+#
+# APPLIES TO: CrossOver-sourced Wine (24.x / 26.x) configured --without-vulkan.

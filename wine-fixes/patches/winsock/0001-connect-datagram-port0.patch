@@ -1,0 +1,40 @@
+# Uncork winsock patch 0001 — allow connect() to port 0 on datagram sockets
+#
+# WHY: On Windows, connect()-ing a SOCK_DGRAM socket to port 0 succeeds — c-ares
+# (gRPC's DNS resolver) relies on it for source-address / reachability probing.
+# On macOS/BSD that connect() returns EADDRNOTAVAIL, which Wine maps to
+# STATUS_INVALID_ADDRESS_COMPONENT (0xc0000207), breaking the probe and the gRPC
+# resolver (observed as EA App's endless "stub invalid"). Wine ALREADY does the
+# equivalent substitution on the sendto path (dlls/ntdll/unix/socket.c: port 0 ->
+# 'discard' port 9); this applies the same fix to the connect path.
+#
+# VERIFIED: with this patch, port-0 connect failures (0xc0000207) drop from many to
+# ZERO under Wine on macOS. (NB: necessary but not alone sufficient for the EA App —
+# its gRPC channel still reports "stub invalid" from a further, still-unidentified
+# cause; see memory cef-32bit-d3dmetal-wall.)
+#
+# OPEN-SOURCE: worth upstreaming to Wine/CrossOver — it's correct Windows-compat
+# behaviour and mirrors the existing sendto workaround.
+#
+# TARGET: server/sock.c, in the IOCTL_AFD_WINE_CONNECT handler, right before
+#         `memcpy( &peer_addr, &unix_addr, ... ); ret = connect(...)`.
+--- a/server/sock.c
++++ b/server/sock.c
+@@ IOCTL_AFD_WINE_CONNECT handler, after the magic_loopback_addr fixup @@
+         if (unix_addr.addr.sa_family == AF_INET && !memcmp( &unix_addr.in.sin_addr, magic_loopback_addr, 4 ))
+             unix_addr.in.sin_addr.s_addr = htonl( INADDR_LOOPBACK );
+
++        /* Uncork: connecting a datagram socket to port 0 succeeds on Windows (c-ares/
++         * gRPC use it for source-address probing) but fails EADDRNOTAVAIL on macOS/BSD,
++         * which Wine maps to STATUS_INVALID_ADDRESS_COMPONENT and breaks the gRPC
++         * resolver. Substitute the 'discard' port (9), exactly as the sendto path does. */
++        if (sock->type == WS_SOCK_DGRAM &&
++            ((unix_addr.addr.sa_family == AF_INET && !unix_addr.in.sin_port) ||
++             (unix_addr.addr.sa_family == AF_INET6 && !unix_addr.in6.sin6_port)))
++        {
++            if (unix_addr.addr.sa_family == AF_INET) unix_addr.in.sin_port = htons( 9 );
++            else unix_addr.in6.sin6_port = htons( 9 );
++        }
++
+         memcpy( &peer_addr, &unix_addr, sizeof(unix_addr) );
+         ret = connect( unix_fd, &unix_addr.addr, unix_len );

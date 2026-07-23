@@ -1,0 +1,363 @@
+import SwiftUI
+
+/// Steam-style game page: hero art, playtime stats, a prominent Play/Install, and
+/// all the per-game config (compatibility profile, Windows version, performance
+/// overlay, components, uninstall). Pushed from the Library grid; everything here
+/// is backed by the compat DB + the user-overrides file the engine reads, so
+/// changes take effect on the next launch without rebuilding the app.
+struct GameDetailView: View {
+    let game: InstalledGame
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var run = RunStore.shared
+    @ObservedObject private var play = PlaytimeStore.shared
+    @ObservedObject private var pdb = ProtonDBStore.shared
+    @ObservedObject private var engine = EngineDownloader.shared
+    @ObservedObject private var art = CustomArtStore.shared
+
+    @State private var profile = "auto"
+    @State private var hudOn = false
+    @State private var winver = ""
+    @State private var launchArgs = ""
+    @State private var dllOverrides = ""
+    @State private var showAdvanced = false
+    @State private var showComponents = false
+    @State private var confirmRemove = false
+    @State private var confirmUninstall = false
+
+    private var compat: GameCompat { GameCompat.of(game) }
+    private var note: String? { game.source == .steam ? CompatDB.shared.note(appid: game.launchID) : nil }
+    private var components: [String] { game.source == .steam ? CompatDB.shared.winetricks(appid: game.launchID) : [] }
+    private var canUninstall: Bool { (game.source == .epic || game.source == .gog) && game.installed }
+    /// Compatibility profiles only drive the Steam launch path (play.sh).
+    private var showsProfiles: Bool { game.source == .steam }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                hero
+                VStack(alignment: .leading, spacing: 16) {
+                    actionRow
+                    if showsProfiles { compatibilityCard }
+                    else { simpleCompatCard }
+                    performanceCard
+                    if game.source == .steam { advancedCard }
+                    if game.source == .steam { componentsCard }
+                    dangerZone
+                }
+                .padding(DS.Space.gutter)
+            }
+        }
+        .navigationTitle(game.title)
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                CompatIndicator(game: game)
+            }
+        }
+        .onAppear {
+            profile = UserOverrides.shared.profile(game.launchID)
+            hudOn = UserOverrides.shared.hud(game.launchID)
+            winver = UserOverrides.shared.winver(game.launchID)
+            launchArgs = UserOverrides.shared.launchArgs(game.launchID)
+            dllOverrides = UserOverrides.shared.dllOverridesString(game.launchID)
+        }
+        .onChange(of: profile) { _, v in UserOverrides.shared.setProfile(game.launchID, v) }
+        .onChange(of: hudOn)   { _, v in UserOverrides.shared.setHUD(game.launchID, v) }
+        .onChange(of: winver)  { _, v in UserOverrides.shared.setWinver(game.launchID, v) }
+        .onChange(of: launchArgs) { _, v in UserOverrides.shared.setLaunchArgs(game.launchID, v) }
+        .onChange(of: dllOverrides) { _, v in UserOverrides.shared.setDLLOverridesString(game.launchID, v) }
+        .sheet(isPresented: $showComponents) { WinetricksSheet(game: game) }
+    }
+
+    // MARK: hero
+
+    private var hero: some View {
+        ZStack(alignment: .bottomLeading) {
+            // Wide cinematic banner (Steam's library_hero), or a user-set image.
+            LinearGradient(colors: [game.art.0, game.art.1], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .overlay {
+                    AsyncImage(url: game.heroURL) { img in img.resizable().scaledToFill() }
+                    placeholder: { Color.clear }
+                }
+                .frame(height: 340).frame(maxWidth: .infinity).clipped()
+            LinearGradient(colors: [.clear, .black.opacity(0.85)], startPoint: .center, endPoint: .bottom)
+                .frame(height: 340).allowsHitTesting(false)
+
+            VStack(alignment: .leading, spacing: 8) {
+                // Steam-style: the transparent game logo, falling back to the title.
+                if let logo = game.logoURL {
+                    AsyncImage(url: logo) { img in
+                        img.resizable().scaledToFit().frame(maxWidth: 400, maxHeight: 130, alignment: .bottomLeading)
+                            .shadow(radius: 8)
+                    } placeholder: { heroTitle }
+                } else {
+                    heroTitle
+                }
+                Text("\(game.source.rawValue) · \(game.launchID)")
+                    .font(.system(size: 12, weight: .medium)).foregroundStyle(.white.opacity(0.8))
+            }
+            .padding(20)
+        }
+        .overlay(alignment: .topTrailing) { artworkMenu }
+    }
+
+    private var heroTitle: some View {
+        Text(game.title).font(.system(size: 30, weight: .heavy)).foregroundStyle(.white)
+            .shadow(radius: 6).lineLimit(2)
+    }
+
+    /// Set/replace custom artwork, for games we can't pull art for (or to override
+    /// what we did pull). Copies the picked image into Uncork's art store.
+    private var artworkMenu: some View {
+        Menu {
+            Button { pickArt(hero: true) }  label: { Label("Set banner image…", systemImage: "photo") }
+            Button { pickArt(hero: false) } label: { Label("Set cover image (grid tile)…", systemImage: "rectangle.on.rectangle") }
+            if art.hasArt(game.launchID) {
+                Divider()
+                Button(role: .destructive) { art.clear(game.launchID) } label: { Label("Reset to default art", systemImage: "arrow.uturn.backward") }
+            }
+        } label: {
+            Image(systemName: "photo.badge.plus")
+                .font(.system(size: 13, weight: .semibold))
+                .padding(8)
+                .background(.black.opacity(0.45), in: Circle())
+                .foregroundStyle(.white)
+        }
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .padding(14)
+        .help("Add or replace this game's artwork")
+    }
+
+    private func pickArt(hero: Bool) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = hero ? "Choose a banner image for this game" : "Choose a cover image (shown on the Library tile)"
+        if panel.runModal() == .OK, let url = panel.url {
+            art.set(game.launchID, hero: hero, from: url)
+        }
+    }
+
+    // MARK: action row (Play/Install + stats)
+
+    private var actionRow: some View {
+        HStack(alignment: .center, spacing: 16) {
+            if game.installed { PlayButton(game: game) } else { InstallButton(game: game) }
+            if run.state(game.id) == .failed {
+                Button { LaunchService.applyFixes(game) } label: {
+                    Label("Apply fixes", systemImage: "wrench.and.screwdriver.fill")
+                        .font(.system(size: 12, weight: .semibold)).padding(.vertical, 6).padding(.horizontal, 12)
+                }
+                .buttonStyle(.plain).foregroundStyle(.white).background(Capsule().fill(.orange))
+            }
+            Spacer()
+            stat("Playtime", play.playtimeLabel(game.id), "clock")
+            if let last = play.lastPlayedLabel(game.id) { stat("Last played", last, "calendar") }
+        }
+    }
+
+    private func stat(_ title: String, _ value: String, _ icon: String) -> some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Label(value, systemImage: icon).font(.system(size: 13, weight: .semibold)).labelStyle(.titleAndIcon)
+            Text(title).font(.system(size: 10)).foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: compatibility (with profile picker: Steam)
+
+    private var compatibilityCard: some View {
+        card(icon: "checkmark.seal", title: "Compatibility") {
+            HStack { GameCompatBadge(compat: compat); Spacer()
+                if let tier = pdb.tier(for: game) { ProtonBadge(tier: tier) } }
+            Text(compat.detail).font(.system(size: 12)).foregroundStyle(.secondary)
+            if let note { Text(note).font(.system(size: 11)).foregroundStyle(.secondary.opacity(0.85)) }
+
+            Divider().opacity(0.4)
+
+            // Compatibility profile picker (Steam-style "pick your engine").
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Compatibility profile").font(.system(size: 13, weight: .medium))
+                        Text("The engine this game runs on. Change it if the game won't start.")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Picker("", selection: $profile) {
+                        ForEach(CompatProfiles.shared.all) { p in Text(p.label).tag(p.id) }
+                    }.labelsHidden().pickerStyle(.menu).frame(maxWidth: 220)
+                }
+                if let p = CompatProfiles.shared.profile(profile) {
+                    Text(p.bestFor.isEmpty ? p.summary : p.bestFor)
+                        .font(.system(size: 11)).foregroundStyle(.secondary.opacity(0.85))
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let warn = p.warn {
+                        Label(warn, systemImage: "exclamationmark.triangle.fill")
+                            .font(.system(size: 10)).foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if p.needsDownload && !CompatProfiles.shared.isEngineInstalled(p) {
+                        engineDownloadRow(p)
+                    }
+                }
+            }
+
+            Divider().opacity(0.4)
+
+            HStack {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Windows version").font(.system(size: 13, weight: .medium))
+                    Text("If a game says your OS is unsupported").font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Picker("", selection: $winver) {
+                    Text("Automatic").tag("")
+                    Text("Windows 10").tag("win10")
+                    Text("Windows 8.1").tag("win81")
+                    Text("Windows 7").tag("win7")
+                    Text("Windows XP").tag("winxp")
+                }.labelsHidden().pickerStyle(.menu).frame(maxWidth: 150)
+            }
+        }
+    }
+
+    // MARK: compatibility (non-Steam: verdict only)
+
+    private var simpleCompatCard: some View {
+        card(icon: "checkmark.seal", title: "Compatibility") {
+            HStack { GameCompatBadge(compat: compat); Spacer()
+                if let tier = pdb.tier(for: game) { ProtonBadge(tier: tier) } }
+            Text(compat.detail).font(.system(size: 12)).foregroundStyle(.secondary)
+        }
+    }
+
+    /// Download row shown when the selected profile's engine isn't on disk yet
+    /// (a downloadable GPTk version): the Steam "install this engine" action.
+    @ViewBuilder private func engineDownloadRow(_ p: CompatProfile) -> some View {
+        if engine.installing == p.id {
+            VStack(alignment: .leading, spacing: 4) {
+                ProgressView(value: engine.fraction).tint(DS.accent)
+                Text(engine.message).font(.system(size: 10)).foregroundStyle(.secondary)
+            }
+        } else {
+            Button { engine.download(profileID: p.id) { _ in } } label: {
+                Label("Download this engine (~240 MB)", systemImage: "arrow.down.circle.fill")
+                    .font(.system(size: 12, weight: .semibold)).padding(.vertical, 5).padding(.horizontal, 12)
+            }
+            .buttonStyle(.plain).foregroundStyle(.white).background(Capsule().fill(Color.blue))
+            .disabled(engine.isBusy)
+        }
+    }
+
+    // MARK: advanced (launch args + DLL overrides)
+
+    private var advancedCard: some View {
+        card(icon: "terminal", title: "Advanced") {
+            DisclosureGroup(isExpanded: $showAdvanced) {
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Launch options").font(.system(size: 12, weight: .medium))
+                        TextField("e.g. -force-d3d11 -windowed", text: $launchArgs)
+                            .textFieldStyle(.roundedBorder).font(.system(size: 12))
+                        Text("Extra command-line arguments passed to the game.")
+                            .font(.system(size: 10)).foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("DLL overrides").font(.system(size: 12, weight: .medium))
+                        TextField("e.g. d3d11=n;xaudio2_9=b", text: $dllOverrides)
+                            .textFieldStyle(.roundedBorder).font(.system(size: 12))
+                        Text("Wine DLL overrides (name=n native / b builtin), separated by “;”. Power users only.")
+                            .font(.system(size: 10)).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.top, 6)
+            } label: {
+                Text("Launch options & DLL overrides").font(.system(size: 13, weight: .medium))
+            }
+            .tint(DS.accent)
+        }
+    }
+
+    private var performanceCard: some View {
+        card(icon: "speedometer", title: "Performance") {
+            Toggle(isOn: $hudOn) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Performance overlay").font(.system(size: 13, weight: .medium))
+                    Text("On-screen FPS & GPU stats while playing").font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+            }.toggleStyle(.switch).tint(DS.accent)
+        }
+    }
+
+    private var componentsCard: some View {
+        card(icon: "shippingbox", title: "Components") {
+            if !components.isEmpty {
+                HStack {
+                    Text("Recommended: \(components.joined(separator: ", "))")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                    Spacer()
+                    Button { LaunchService.installComponents(components, for: game) } label: {
+                        Text("Install").font(.system(size: 12, weight: .bold))
+                            .padding(.vertical, 5).padding(.horizontal, 14)
+                    }
+                    .buttonStyle(.plain).foregroundStyle(.white).background(Capsule().fill(DS.accent.opacity(0.85)))
+                }
+            }
+            Button { showComponents = true } label: {
+                Label("Manage components (winetricks)…", systemImage: "wrench.adjustable")
+                    .font(.system(size: 12, weight: .medium))
+            }.buttonStyle(.plain).foregroundStyle(DS.accent)
+        }
+    }
+
+    private var dangerZone: some View {
+        VStack(spacing: 10) {
+            if game.source == .steam {
+                Button { LaunchService.applyFixes(game) } label: {
+                    Label("Apply fixes from database", systemImage: "wrench.and.screwdriver")
+                        .font(.system(size: 12, weight: .semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
+                }
+                .buttonStyle(.plain).foregroundStyle(DS.accent).background(Capsule().fill(DS.accent.opacity(0.12)))
+                .help("Re-run every fix this game needs (system cleanup, runtimes). Use this if it won't launch")
+            }
+            if canUninstall {
+                Button { confirmUninstall = true } label: {
+                    Label("Uninstall", systemImage: "trash")
+                        .font(.system(size: 12, weight: .semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
+                }
+                .buttonStyle(.plain).foregroundStyle(.red).background(Capsule().fill(.red.opacity(0.12)))
+                .confirmationDialog("Uninstall “\(game.title)”?", isPresented: $confirmUninstall, titleVisibility: .visible) {
+                    Button("Uninstall", role: .destructive) { LaunchService.uninstall(game); dismiss() }
+                    Button("Cancel", role: .cancel) {}
+                } message: { Text("This deletes the downloaded game files. You can reinstall it anytime from your library.") }
+            }
+            if game.source == .custom {
+                Button { confirmRemove = true } label: {
+                    Label("Remove from Library", systemImage: "trash")
+                        .font(.system(size: 12, weight: .semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
+                }
+                .buttonStyle(.plain).foregroundStyle(.red).background(Capsule().fill(.red.opacity(0.12)))
+                .confirmationDialog("Remove “\(game.title)” from your Library?", isPresented: $confirmRemove, titleVisibility: .visible) {
+                    Button("Remove", role: .destructive) {
+                        CustomGamesStore.shared.remove(id: game.launchID); LibraryStore.shared.refresh(); dismiss()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: { Text("This only removes it from Uncork: the game files on disk aren't deleted.") }
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    @ViewBuilder private func card<Content: View>(icon: String, title: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: icon).foregroundStyle(DS.accent)
+                Text(title).font(.system(size: 14, weight: .semibold))
+            }
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: DS.Radius.tile).fill(Color.secondary.opacity(0.10)))
+    }
+}

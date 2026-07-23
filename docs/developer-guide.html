@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uncork Developer Guide</title>
+<style>
+  :root {
+    --bg: #FDFDFC;
+    --surface: #ffffff;
+    --surface-2: #f6f5f2;
+    --ink: #1b1b18;
+    --muted: #6f6d66;
+    --border: #e7e5e0;
+    --border-strong: #dcd9d2;
+    --accent: #F53003;
+    --accent-ink: #b52704;
+    --accent-soft: rgba(245, 48, 3, 0.08);
+    --note-bg: rgba(245, 48, 3, 0.05);
+    --code-bg: #f4f2ee;
+    --code-ink: #2c2b26;
+    --shadow: 0 1px 2px rgba(27,27,24,0.04), 0 8px 24px rgba(27,27,24,0.05);
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615;
+      --surface: #1d1d1b;
+      --surface-2: #201f1d;
+      --ink: #EDEDEC;
+      --muted: #a5a39b;
+      --border: #2b2a27;
+      --border-strong: #363530;
+      --accent: #FF5233;
+      --accent-ink: #FF7a5f;
+      --accent-soft: rgba(255, 82, 51, 0.13);
+      --note-bg: rgba(255, 82, 51, 0.09);
+      --code-bg: #201f1d;
+      --code-ink: #d8d6cf;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #FDFDFC; --surface: #ffffff; --surface-2: #f6f5f2; --ink: #1b1b18;
+    --muted: #6f6d66; --border: #e7e5e0; --border-strong: #dcd9d2; --accent: #F53003;
+    --accent-ink: #b52704; --accent-soft: rgba(245,48,3,0.08); --note-bg: rgba(245,48,3,0.05);
+    --code-bg: #f4f2ee; --code-ink: #2c2b26;
+    --shadow: 0 1px 2px rgba(27,27,24,0.04), 0 8px 24px rgba(27,27,24,0.05);
+  }
+  :root[data-theme="dark"] {
+    --bg: #161615; --surface: #1d1d1b; --surface-2: #201f1d; --ink: #EDEDEC;
+    --muted: #a5a39b; --border: #2b2a27; --border-strong: #363530; --accent: #FF5233;
+    --accent-ink: #FF7a5f; --accent-soft: rgba(255,82,51,0.13); --note-bg: rgba(255,82,51,0.09);
+    --code-bg: #201f1d; --code-ink: #d8d6cf;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); line-height: 1.65;
+    -webkit-font-smoothing: antialiased; font-size: 16px;
+  }
+  a { color: inherit; }
+
+  /* ---- top bar ---- */
+  .topbar {
+    position: sticky; top: 0; z-index: 40;
+    display: flex; align-items: center; gap: 16px;
+    height: 60px; padding: 0 22px;
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 11px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand .mark {
+    width: 26px; height: 26px; border-radius: 7px; flex: none;
+    display: grid; place-items: center; color: #fff; background: var(--accent);
+    font-size: 15px; box-shadow: 0 2px 8px var(--accent-soft);
+  }
+  .brand .sub {
+    font-weight: 500; color: var(--muted); font-size: 13px;
+    padding-left: 12px; margin-left: 4px; border-left: 1px solid var(--border-strong);
+  }
+  .topbar .spacer { flex: 1; }
+  .verbadge {
+    font-size: 12px; font-weight: 600; color: var(--accent-ink);
+    background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+    padding: 3px 10px; border-radius: 999px;
+  }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--ink); cursor: pointer;
+    display: grid; place-items: center; font-size: 15px;
+  }
+  .icon-btn:hover { border-color: var(--border-strong); }
+  .menu-btn { display: none; }
+
+  /* ---- layout ---- */
+  .layout { display: grid; grid-template-columns: 272px minmax(0, 1fr); max-width: 1240px; margin: 0 auto; }
+
+  .sidebar {
+    position: sticky; top: 60px; align-self: start;
+    height: calc(100vh - 60px); overflow-y: auto;
+    padding: 26px 14px 60px 22px; border-right: 1px solid var(--border);
+  }
+  .nav-group { margin-bottom: 22px; }
+  .nav-group h4 {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--muted); margin: 0 0 8px 10px;
+  }
+  .nav-group a {
+    display: block; text-decoration: none; color: var(--muted);
+    font-size: 13.5px; font-weight: 500; padding: 5px 10px; border-radius: 7px;
+    border-left: 2px solid transparent;
+  }
+  .nav-group a:hover { color: var(--ink); background: var(--surface-2); }
+  .nav-group a.active {
+    color: var(--accent-ink); background: var(--accent-soft);
+    border-left-color: var(--accent); font-weight: 600;
+  }
+
+  /* ---- content ---- */
+  .content { padding: 40px clamp(22px, 5vw, 68px) 120px; min-width: 0; }
+  .content-inner { max-width: 720px; }
+
+  .eyebrow { font-size: 12.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+  h1.page-title { font-size: clamp(30px, 5vw, 42px); line-height: 1.1; letter-spacing: -0.02em; margin: 10px 0 8px; text-wrap: balance; }
+  .lede { font-size: 18px; color: var(--muted); margin: 0 0 8px; max-width: 60ch; }
+
+  section { scroll-margin-top: 78px; padding-top: 36px; }
+  section > h2 {
+    font-size: 24px; letter-spacing: -0.015em; margin: 0 0 4px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border); text-wrap: balance;
+  }
+  section > h3 { font-size: 16.5px; letter-spacing: -0.01em; margin: 26px 0 4px; }
+  p { margin: 12px 0; }
+  .content strong { font-weight: 650; }
+  code {
+    font-family: var(--mono); font-size: 0.86em; background: var(--code-bg); color: var(--code-ink);
+    padding: 0.12em 0.4em; border-radius: 5px; border: 1px solid var(--border);
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; overflow-x: auto; margin: 16px 0; box-shadow: var(--shadow);
+  }
+  pre code { background: none; border: none; padding: 0; font-size: 13px; line-height: 1.6; color: var(--code-ink); }
+
+  ul { margin: 12px 0; padding-left: 20px; }
+  li { margin: 6px 0; }
+  li::marker { color: var(--accent); }
+
+  .table-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--surface-2); font-weight: 650; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  tr:last-child td { border-bottom: none; }
+  td code { white-space: nowrap; }
+
+  .note {
+    display: flex; gap: 12px; margin: 18px 0; padding: 14px 16px;
+    background: var(--note-bg); border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+    border-left-width: 3px; border-radius: 10px; font-size: 14.5px;
+  }
+  .note .ico { color: var(--accent); font-weight: 800; flex: none; }
+  .note p { margin: 0; }
+  .note strong { color: var(--accent-ink); }
+
+  .arch {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--muted);
+    background: var(--surface-2); border: 1px dashed var(--border-strong); border-radius: 12px;
+    padding: 16px 18px; margin: 16px 0; overflow-x: auto; white-space: pre;
+  }
+  .arch b { color: var(--accent-ink); font-weight: 700; }
+
+  footer.docfoot { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+  .backdrop { display: none; }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .menu-btn { display: grid; }
+    .sidebar {
+      position: fixed; top: 60px; left: 0; width: 280px; z-index: 35;
+      background: var(--surface); transform: translateX(-102%); transition: transform 0.22s ease;
+      border-right: 1px solid var(--border);
+    }
+    body.nav-open .sidebar { transform: none; }
+    body.nav-open .backdrop { display: block; position: fixed; inset: 60px 0 0 0; background: rgba(0,0,0,0.35); z-index: 34; }
+  }
+  @media (prefers-reduced-motion: reduce) { .sidebar { transition: none; } * { scroll-behavior: auto; } }
+  html { scroll-behavior: smooth; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="icon-btn menu-btn" id="menuBtn" aria-label="Toggle navigation">&#9776;</button>
+  <div class="brand">
+    <span class="mark" aria-hidden="true">&#127863;</span>
+    Uncork
+    <span class="sub">Developer Guide</span>
+  </div>
+  <span class="spacer"></span>
+  <span class="verbadge">v0.1</span>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle color theme">&#9681;</button>
+</div>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <nav>
+      <div class="nav-group">
+        <h4>Overview</h4>
+        <a href="#big-picture">The big picture</a>
+        <a href="#layout">Repository layout</a>
+      </div>
+      <div class="nav-group">
+        <h4>The engine</h4>
+        <a href="#graphics">Rosetta + graphics backends</a>
+        <a href="#bottles">Bottles</a>
+        <a href="#compat">Compat DB</a>
+        <a href="#profiles">Compatibility profiles</a>
+        <a href="#overrides">User overrides</a>
+      </div>
+      <div class="nav-group">
+        <h4>Stores</h4>
+        <a href="#stores">Data-driven templates</a>
+        <a href="#custom">Custom + Save/Run</a>
+        <a href="#walled">Hard-walled launchers</a>
+      </div>
+      <div class="nav-group">
+        <h4>App</h4>
+        <a href="#wine-downloader">Wine Downloader</a>
+        <a href="#library">Library and artwork</a>
+        <a href="#contract">App to script contract</a>
+      </div>
+      <div class="nav-group">
+        <h4>Working on it</h4>
+        <a href="#build">Build and run</a>
+        <a href="#slim">Slim builds &amp; engines</a>
+        <a href="#handoff">Hand off to a developer</a>
+        <a href="#contribute">How to contribute</a>
+        <a href="#limits">Known limits</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="backdrop" id="backdrop"></div>
+
+  <main class="content">
+    <div class="content-inner">
+      <span class="eyebrow">Developer Guide</span>
+      <h1 class="page-title">Building on Uncork</h1>
+      <p class="lede">Uncork runs Windows game launchers and games on Apple Silicon Macs, the Mac-user-friendly way. This guide is for people hacking on Uncork itself. It is open source; contributions welcome.</p>
+
+      <section id="big-picture">
+        <h2>The big picture</h2>
+        <p>Uncork is <strong>a SwiftUI app that drives shell scripts that drive Wine</strong>. The app is only the UI and orchestration. All the real work (creating bottles, installing stores, launching games, applying fixes) lives in <code>scripts/</code> so it can be fixed and shipped as data, without rebuilding the app.</p>
+        <div class="arch">SwiftUI app  <b>--runs--&gt;</b>  scripts/*.sh  <b>--drive--&gt;</b>  Wine + graphics backend
+ (the UI)               (the engine)              (GPTk/D3DMetal, DXMT, DXVK)</div>
+        <p>Two roots keep the app relocatable (see <code>Support/Paths.swift</code>):</p>
+        <ul>
+          <li><strong>payload</strong>: read-only. Shipped inside <code>Uncork.app/Contents/Resources/uncork</code> (<code>scripts/</code>, <code>tools/</code>, <code>compat/</code>, <code>engine/</code>, <code>wine-fixes/</code>, <code>docs/</code>); in dev it is the source checkout.</li>
+          <li><strong>data</strong>: writable per-user state at <code>~/Library/Application Support/Uncork</code> (<code>bottles/</code>, downloaded engines, <code>apps/</code>, <code>templates/</code>, <code>art/</code>, <code>overrides.json</code>, caches). Never written into the payload, so a signed bundle stays valid.</li>
+        </ul>
+      </section>
+
+      <section id="layout">
+        <h2>Repository layout</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Path</th><th>What</th></tr></thead>
+            <tbody>
+              <tr><td><code>app/</code></td><td>the SwiftUI app (SPM package; <code>Sources/Uncork/...</code>)</td></tr>
+              <tr><td><code>scripts/</code></td><td>the engine: bottle creation, store setup, <code>play.sh</code>, fixes</td></tr>
+              <tr><td><code>compat/</code></td><td>data-driven DBs: <code>gamefixes.json</code>, <code>profiles.json</code>, <code>store-templates.json</code></td></tr>
+              <tr><td><code>engine/</code></td><td>Wine builds + graphics backends (large ones downloaded on demand)</td></tr>
+              <tr><td><code>wine-fixes/</code></td><td>versioned patched-Wine engines + <code>wine-builds.json</code></td></tr>
+              <tr><td><code>tools/</code></td><td>small bundled CLIs</td></tr>
+              <tr><td><code>docs/</code></td><td>this guide + design docs</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="graphics">
+        <h2>Rosetta + the graphics backends</h2>
+        <p>Windows games are x86-64. On Apple Silicon the whole stack runs <strong>x86-64 Wine under Rosetta 2</strong>, with a DirectX to Metal translator on top. There is no native Vulkan on macOS, so the working backends are:</p>
+        <ul>
+          <li><strong>D3DMetal</strong> (Apple's, via the Game Porting Toolkit Wine): D3D11/12 to Metal. The fast, most complete path for modern games.</li>
+          <li><strong>DXMT</strong>: D3D11 to Metal, on the bundled Wine 11. The de-facto Steam backend. Built for both architectures, so <strong>32-bit D3D11 games work too</strong> (e.g. Among Us).</li>
+          <li><strong>DXVK</strong>: D3D9/10/11 to Vulkan to Metal (MoltenVK). Mostly <strong>unusable on Apple Silicon</strong>: it needs the <code>geometryShader</code> feature MoltenVK cannot provide. Kept for completeness.</li>
+        </ul>
+        <div class="note"><span class="ico">&#9873;</span><p><strong>Linux/Proton is the floor.</strong> If a game does not run there, it will not run on Mac. Check ProtonDB before investing. 64-bit and 32-bit D3D11/12 games work; old D3D9 games are the remaining hard case.</p></div>
+        <h3>Launch mechanism (important gotcha)</h3>
+        <p><code>play.sh</code> launches the game <strong>exe directly</strong> (<code>wine "$GAME_EXE" $launch_args</code>), not <code>steam -applaunch</code>. Because we start Steam hidden first, a second <code>steam -applaunch &lt;id&gt;</code> only IPCs the already-running Steam, which spawns the game from its own process, so our graphics env and per-game <code>launch_args</code> never reach the game. Direct launch puts them on the actual game process; SteamStub DRM still decrypts. A <code>-applaunch</code> fallback fires only if the direct process exits within ~14s.</p>
+      </section>
+
+      <section id="bottles">
+        <h2>Bottles (Wine prefixes)</h2>
+        <p>A "bottle" is a Wine prefix under <code>data/bottles/</code>. Launcher games share their store's bottle (<code>steam</code>, <code>epic</code>, <code>gog</code>); D3DMetal games use a per-engine prefix (<code>steam-gptk</code>, ...); standalone or added games can be isolated.</p>
+        <div class="note"><span class="ico">&#9888;</span><p><strong>Never a system-wide <code>pkill</code>.</strong> Stopping a game only ever targets its own prefix via <code>wineserver -k</code>. A broad kill has taken down the user's browser and terminal before.</p></div>
+      </section>
+
+      <section id="compat">
+        <h2>The compat DB: <code>compat/gamefixes.json</code></h2>
+        <p>Uncork's "protonfixes-for-Mac": one source of truth for per-game fixes, read by <code>autoconfigure.sh</code>, <code>play.sh</code>, and the app. Per game: <code>backend</code>, <code>verdict</code>, <code>launch_exe</code>, <code>winetricks[]</code>, <code>env{}</code>, <code>launch_args</code>, <code>notes</code>. Update it to fix a game, no app rebuild needed.</p>
+      </section>
+
+      <section id="profiles">
+        <h2>Compatibility profiles: <code>compat/profiles.json</code></h2>
+        <p>The Mac analog of Steam's per-game Proton-version picker. A <strong>profile</strong> is a matched (Wine engine + graphics backend) bundle, because the two are ABI-coupled here. Profiles: <code>auto</code>, <code>gptk</code> (D3DMetal), <code>wine11-dxmt</code>, <code>wine11-dxvk</code>, plus downloadable older <code>gptk-2.1</code> / <code>gptk-1.1</code>. <code>ensure-profile.sh</code> fetches a profile's engine on demand.</p>
+      </section>
+
+      <section id="overrides">
+        <h2>User overrides: <code>overrides.json</code></h2>
+        <p>Per-user, per-game choices the app writes and the scripts read: <code>profile</code>, <code>winver</code>, <code>hud</code>, <code>launch_args</code>, <code>dll_overrides</code>. Always wins over the shipped DB, so a UI toggle takes effect on the next launch.</p>
+      </section>
+
+      <section id="stores">
+        <h2>Stores: data-driven templates</h2>
+        <p>Stores are <strong>data-driven and extensible</strong>. The catalog is <code>compat/store-templates.json</code>, and developers add a store by adding a template, with no app rebuild. Loaded by <code>StoreTemplates</code> (app) and <code>setup-template.sh</code> (engine). Any <code>*.json</code> dropped in <code>data/templates/</code> is also loaded, and overrides a shipped template with the same id.</p>
+        <p>A template carries an <code>id</code>, <code>name</code>, <code>platform</code>, art, a reproducible <code>recipe</code> (engine + winver + winetricks + dll_overrides + launch_flags + env), and, for installable ones, an <code>installer</code> plus <code>launch_path</code> / <code>detect_path</code>. Two axes:</p>
+        <ul>
+          <li><strong><code>kind</code></strong>: <code>steam</code> / <code>epic</code> / <code>gog</code> are <strong>built-in kinds</strong> with a dedicated <code>setup-&lt;kind&gt;.sh</code>. <code>generic</code> templates use the shared <code>setup-template.sh</code>.</li>
+          <li><strong><code>platform</code></strong>: <code>windows</code> installs into a Wine bottle (<code>bottles/template-&lt;id&gt;</code>); <code>mac</code> installs a <strong>native macOS app</strong> (no Wine) into <code>data/apps/&lt;id&gt;/</code> and launches it with <code>run-mac.sh</code>.</li>
+        </ul>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Template</th><th>Kind</th><th>How it runs</th></tr></thead>
+            <tbody>
+              <tr><td>Steam</td><td>built-in</td><td>~2 GB client snapshot downloaded on first run, launched via <code>play.sh</code></td></tr>
+              <tr><td>Epic</td><td>built-in</td><td><code>legendary</code> CLI; <code>--platform Windows</code> pulls Windows builds</td></tr>
+              <tr><td>GOG</td><td>built-in</td><td><code>gogdl</code> CLI</td></tr>
+              <tr><td>Battle.net</td><td>generic, native mac</td><td>installs Blizzard's real macOS app, no Wine, avoids the Update Agent stall</td></tr>
+              <tr><td>itch.io</td><td>generic, native mac</td><td>installs the native itch app</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="custom">
+        <h2>Custom stores and Save/Run templates</h2>
+        <ul>
+          <li><strong>Custom stores</strong> (<code>CustomStoresStore</code> + <code>install-custom-store.sh</code>): a user adds any storefront themselves. Windows (installer run in a fresh bottle with a chosen Wine engine + winver + flags, then pick the launcher exe) or native macOS (a <code>.app</code> shortcut). Persisted to <code>custom-stores.json</code>.</li>
+          <li><strong>Save as Template / Run Template</strong> (<code>TemplateService</code>): export a perfected bottle's recipe to a shareable <code>.json</code>, or import one, so anyone can reproduce a bottle exactly. Exports land in <code>data/templates/</code>.</li>
+        </ul>
+      </section>
+
+      <section id="walled">
+        <h2>Hard-walled launchers (native beats Wine)</h2>
+        <p>Launchers that wall under Wine (EA app gRPC BGS, Battle.net Update Agent/WMI, Rockstar background service) wall because of a background service, not the game. Two escapes:</p>
+        <ul>
+          <li>prefer the vendor's <strong>native macOS client</strong> (Battle.net, Steam), or</li>
+          <li>use a <strong>download CLI</strong> that pulls the Windows files for us to Wine-run: <code>legendary</code> / <code>gogdl</code>, and Steam's <code>steamcmd</code> with <code>+@sSteamCmdForcePlatformType windows</code>.</li>
+        </ul>
+        <p>EA and Rockstar have neither, so they stay blocked; those games are often available on Steam/Epic instead.</p>
+      </section>
+
+      <section id="wine-downloader">
+        <h2>Wine Downloader: <code>wine-fixes/wine-builds.json</code></h2>
+        <p>The Wine Downloader (a Wine-Manager screen, Heroic-style) lists standalone Wine builds fetched on demand into <code>engine/wine-builds/&lt;id&gt;</code> by <code>ensure-wine-build.sh</code>. Distinct from <code>profiles.json</code> engines: a Wine Build is a raw runtime you can trial when a game misbehaves, including <strong>older versions</strong> to roll back to. Add a build to the JSON and it appears with no app rebuild.</p>
+      </section>
+
+      <section id="library">
+        <h2>Library and artwork</h2>
+        <p>The Library is one grid of every owned game across stores plus user-added apps, with <strong>Mac | Windows | All</strong> platform tabs and a per-tile platform badge. Add a game directly: <strong>Add Windows Game</strong> (an <code>.exe</code> via Wine) or <strong>Add Mac Game</strong> (a native <code>.app</code>).</p>
+        <p>The game detail page is Steam-styled: a wide <code>library_hero</code> banner with the transparent game <code>logo</code> overlaid. For titles Uncork cannot pull art for (or to override what it did), <strong>custom artwork</strong> (<code>CustomArtStore</code>) lets the user set a banner or a cover image; the picked file is copied into <code>data/art/</code> and always wins over CDN art.</p>
+      </section>
+
+      <section id="contract">
+        <h2>App to script contract</h2>
+        <p>The app spawns scripts with <code>Paths.scriptEnvironment(...)</code>, which points them at the payload (engine/tools) and the data dir (bottles). Scripts stream progress:</p>
+        <ul>
+          <li><code>@@STEP@@ &lt;pct&gt; &lt;msg&gt;</code>: setup/download progress to a progress bar.</li>
+          <li><code>@@STATUS@@ &lt;msg&gt;</code>: live launch status to the Play button.</li>
+          <li><code>FOUND_EXE=&lt;path&gt;</code>: a custom-store install reports the launcher exe it found.</li>
+        </ul>
+        <p>On quit, Uncork sends the prewarmed Steam client a clean <code>-shutdown</code> <strong>off the main thread</strong>, hides its window, and shows a small "Closing" HUD, so app-quit is a deliberate step, not a frozen window.</p>
+      </section>
+
+      <section id="build">
+        <h2>Build and run</h2>
+        <p>Requirements: macOS on Apple Silicon, Xcode command-line tools, Rosetta 2 (<code>softwareupdate --install-rosetta --agree-to-license</code>).</p>
+        <pre><code># dev run (uses the source tree as the payload)
+cd app &amp;&amp; swift run
+
+# build a double-clickable, signed Uncork.app bundle
+bash scripts/package-app.sh      # -&gt; build/Uncork.app</code></pre>
+        <p><code>swift build</code> for a quick compile check. The GPTk graphics engine and the Steam client are <strong>downloaded on first run</strong>, not bundled, to keep the app lean. <code>package-app.sh</code> quits any running Uncork first (repackaging over a live bundle corrupts its signature), then re-signs and verifies.</p>
+      </section>
+
+      <section id="slim">
+        <h2>Slim builds and on-demand engines</h2>
+        <p><code>UNCORK_SLIM=1 bash scripts/package-app.sh</code> omits the two big Wine engines (<code>wine-stable</code>, <code>wine-cef</code>, roughly 1.8 GB) from the bundle. They are fetched on first use into the writable per-user engine dir by <code>ensure-wine-engine.sh</code> (<code>wine-stable</code> from the public Gcenx release; <code>wine-cef</code> from <code>WINE_CEF_URL</code>). The <code>lib.sh</code> resolver prefers a bundled engine and falls back to the per-user dir, so the same code path works bundled or slim. The default build still bundles both.</p>
+        <p>The two on-demand assets (<code>wine-cef</code> and the Steam client snapshot) live on GitHub releases; <code>scripts/upload-assets.sh [all|wine-cef|steam]</code> packages and uploads them (needs <code>gh</code> authenticated with write access to the repo).</p>
+      </section>
+
+      <section id="handoff">
+        <h2>Hand off to a developer</h2>
+        <p>Build on the target Mac to avoid the code-signing problem: a pre-built <code>.app</code> that is zipped and sent picks up transfer quarantine and a cross-machine signature Gatekeeper rejects. <code>scripts/make-build-kit.sh</code> assembles <code>build/uncork-build-kit.tar.gz</code>, the app source plus the bundled engines, minus dev cruft (<code>app/.build</code>, <code>thirdparty/</code>, wine source, gptk, bottles), with a <code>BUILD-KIT-README.md</code>. The recipient unpacks it and runs <code>bash scripts/package-app.sh</code> to get a locally-signed <code>Uncork.app</code>.</p>
+      </section>
+
+      <section id="contribute">
+        <h2>How to contribute a fix</h2>
+        <ul>
+          <li><strong>Make a game work:</strong> add or tune its entry in <code>compat/gamefixes.json</code> (pick a <code>backend</code>, set <code>launch_exe</code>, add <code>winetricks</code>, record a <code>verdict</code> + <code>notes</code>).</li>
+          <li><strong>Add a compatibility profile / engine version:</strong> add it to <code>compat/profiles.json</code>.</li>
+          <li><strong>Add a store:</strong> add a template to <code>compat/store-templates.json</code> (or drop a <code>.json</code> in <code>data/templates/</code>). Generic templates need no code.</li>
+          <li><strong>Add a Wine build:</strong> add an entry to <code>wine-fixes/wine-builds.json</code>.</li>
+          <li><strong>Patch Wine itself:</strong> when no open-source fix exists, patch + build Wine, tracked in <code>wine-fixes/</code>, and open-source the patch.</li>
+        </ul>
+        <div class="note"><span class="ico">&#9873;</span><p>Keep fixes <strong>portable</strong> (work on any Mac from a clean install) and <strong>data-driven</strong> where possible. Anything a user would do by hand should become an automated, shipped step.</p></div>
+      </section>
+
+      <section id="limits">
+        <h2>Known limits (be honest in the UI)</h2>
+        <ul>
+          <li>32-bit + D3D9 games: no working D3D-to-Metal path yet. 32-bit <strong>D3D11</strong> now works via DXMT.</li>
+          <li>CEF launcher clients (EA/Ubisoft): 32-bit Chromium needs a matched D3DMetal the extracted Wine lacks, a known wall.</li>
+          <li>EA app / Rockstar launchers: hard-walled on macOS Wine (background-service bugs), with no native Mac client to fall back to.</li>
+          <li>The whole engine is x86-64 under Rosetta 2; a native-ARM successor (ARM Wine + FEX + Metal) is tracked but not viable yet. The engine layer is kept swappable on purpose.</li>
+        </ul>
+      </section>
+
+      <footer class="docfoot">
+        Uncork is open source and built to be contributed to, including upstream to DXMT, Wine, and CrossOver. Play anything on your Mac.
+      </footer>
+    </div>
+  </main>
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var themeBtn = document.getElementById('themeBtn');
+    themeBtn.addEventListener('click', function () {
+      var isDark = (root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
+      root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    });
+
+    var body = document.body;
+    var menuBtn = document.getElementById('menuBtn');
+    var backdrop = document.getElementById('backdrop');
+    function closeNav() { body.classList.remove('nav-open'); }
+    menuBtn.addEventListener('click', function () { body.classList.toggle('nav-open'); });
+    backdrop.addEventListener('click', closeNav);
+
+    var links = Array.prototype.slice.call(document.querySelectorAll('.nav-group a'));
+    links.forEach(function (a) { a.addEventListener('click', closeNav); });
+    var sections = links.map(function (a) { return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+
+    function onScroll() {
+      var top = window.scrollY + 90;
+      var current = sections[0];
+      for (var i = 0; i < sections.length; i++) {
+        if (sections[i].offsetTop <= top) current = sections[i];
+      }
+      links.forEach(function (a) {
+        a.classList.toggle('active', current && a.getAttribute('href') === '#' + current.id);
+      });
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
+</script>
+</body>
+</html>

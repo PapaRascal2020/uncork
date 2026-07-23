@@ -1,0 +1,29 @@
+{
+  "_comment": "Per-store setup data for Uncork's Add-a-Store wizard, read by scripts/setup-*.sh during bootstrap. 'prereqs' are winetricks verbs installed into the store's bottle automatically (with progress), the way Faugus installs dependencies. Data-driven so it updates without rebuilding the app. Mirrors compat/gamefixes.json. Per-game runtimes still come from gamefixes.json at launch.",
+  "_schema_fields": "Per store: prereqs[] (winetricks verbs installed into the bottle at setup), note.",
+  "schema": 1,
+  "_gptk_baseline_comment": "Baseline winetricks verbs installed into EVERY store's D3DMetal prefix (<store>-gptk) at setup, so most games run with no per-game config. Verified to install cleanly on GPTk Wine 7.7 (build principle #12). vcrun2022 = VC++ 2015-2022 redist (huge coverage), d3dcompiler_47 = D3D shader compiler, corefonts = the core Windows fonts. Per-game extras stay in gamefixes.json.",
+  "gptk_baseline": ["corefonts", "d3dcompiler_47", "vcrun2022"],
+  "stores": {
+    "steam": {
+      "prereqs": ["corefonts"],
+      "note": "The Steam client runs on stock Wine (no runtime verbs needed). corefonts is a cheap, bottle-wide win: many games assume the core Windows fonts and render boxes/garbled text without them. Best-effort: a flaky font download never blocks Steam being usable. Per-game runtimes are installed on demand from gamefixes.json."
+    },
+    "epic": {
+      "prereqs": [],
+      "note": "legendary + Wine need no extra verbs to run; games pull their own runtimes at launch."
+    },
+    "gog": {
+      "prereqs": [],
+      "note": "GOG is DRM-free and driven by gogdl (bundled), no client to run and no extra verbs; games install into the shared 'gog' bottle and launch on D3DMetal. Per-game runtimes come from gamefixes.json at launch."
+    },
+    "ubisoft": {
+      "prereqs": ["corefonts"],
+      "note": "Ubisoft Connect (32-bit Chromium/CEF) runs in its own 'ubisoft-cef' bottle on the CrossOver CEF engine; its UI renders via Uncork's cross-process IOSurface present bridge (DXMT to Metal). corefonts avoids garbled text. Compat: backend forced to builtin DXMT (WINEDLLOVERRIDES d3d11,dxgi,d3d10core=b) + DXMT_CROSS_PROCESS_PRESENT=1 in ubisoft.sh."
+    },
+    "origin": {
+      "prereqs": ["corefonts", "vcrun2022"],
+      "note": "EA's legacy Origin client (chosen over the EA app, which stalls on its localhost gRPC BGS handshake under Wine, see wine-fixes/diagnostics/grpc-localhost). Origin is a single 32-bit Qt process with no background service. Runs in the 'origin' bottle on bundled Wine 11 by default; corefonts + vcrun2022 cover its UI + games. Compat option: ORIGIN_ENGINE=wine-stable|wine-cef (origin.sh) if the embedded browser regresses. IGO + client self-update disabled via EACore.ini at setup."
+    }
+  }
+}

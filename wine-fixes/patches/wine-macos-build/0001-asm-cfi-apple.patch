@@ -1,0 +1,28 @@
+# Uncork wine-macos-build patch 0001 — disable __ASM_CFI on Apple
+#
+# WHY: Apple clang 17+ (Xcode 16+ / clang 21 on macOS 26) rejects non-private
+# labels between .cfi_startproc/.cfi_endproc under Mach-O .subsections_via_symbols.
+# Wine's hand-written asm thunks emit such labels, so the native (unix-side) build
+# fails with "non-private labels cannot appear between .cfi_startproc/.cfi_endproc".
+# Disabling CFI emission on Apple sidesteps it (CFI = unwind/debug info, not needed
+# for a working runtime). Only affects the native macOS build; mingw PE targets do
+# not define __APPLE__.
+#
+# APPLIES TO: recent Wine (9.x–11.x) built on macOS with Xcode 16+/clang 17+.
+# TARGET: include/wine/asm.h
+--- a/include/wine/asm.h
++++ b/include/wine/asm.h
+@@
+-#if defined(__GCC_HAVE_DWARF2_CFI_ASM) || ((defined(__APPLE__) || defined(__clang__)) && defined(__GNUC__) && !defined(__SEH__))
+-# define __ASM_CFI(str) str
+-#else
+-# define __ASM_CFI(str)
+-#endif
++#if defined(__APPLE__)
++/* Uncork: clang21/Xcode16+ rejects non-private labels in cfi pairs on Mach-O */
++# define __ASM_CFI(str)
++#elif defined(__GCC_HAVE_DWARF2_CFI_ASM) || ((defined(__APPLE__) || defined(__clang__)) && defined(__GNUC__) && !defined(__SEH__))
++# define __ASM_CFI(str) str
++#else
++# define __ASM_CFI(str)
++#endif

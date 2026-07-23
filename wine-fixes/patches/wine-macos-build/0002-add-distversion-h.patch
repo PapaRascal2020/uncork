@@ -1,0 +1,15 @@
+# Uncork wine-macos-build patch 0002 — add missing distversion.h
+#
+# WHY: CrossOver's Wine source references include/distversion.h (via winedbg's
+# resource.h) but CodeWeavers never ships the file, so `configure`/makedep aborts
+# with "distversion.h: No such file or directory". winedbg's Makefile.in uses
+# EXTRAINCL = -I$(top_srcdir)/.. so the file must exist at BOTH:
+#   - <wine-source>/include/distversion.h
+#   - <wine-source>/../distversion.h   (the sources/ dir one level up)
+#
+# ACTION: create both files with this content (verbatim):
+#
+#   #define WINDEBUG_WHAT_HAPPENED_MESSAGE "An application error occurred."
+#   #define WINDEBUG_USER_SUGGESTION_MESSAGE "Please report this problem."
+#
+# APPLIES TO: CrossOver-sourced Wine (24.x / 26.x). Not needed for upstream Wine.

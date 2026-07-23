@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Helper: launch Steam (or run a Steam command) inside the MVP bottle.
+#
+#   ./scripts/steam.sh                 # launch the Steam client (log in here)
+#   ./scripts/steam.sh -applaunch 865360   # launch a game by AppID
+#   ./scripts/steam.sh -shutdown       # cleanly quit Steam in the bottle
+#
+# Runs in the foreground so you can see Steam's window and log in.
+
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+require_wine
+STEAM_EXE="$BOTTLE/drive_c/Program Files (x86)/Steam/steam.exe"
+[[ -f "$STEAM_EXE" ]] || die "Steam not installed in the bottle. Run scripts/03-install-steam.sh first."
+
+# Before starting Steam (it's not running yet), stop background auto-updates so
+# Steam doesn't hang on shutdown "Waiting for <game>…" (Wine + frequently-patched
+# games like Among Us). No-op on a bare -shutdown, and it self-skips if Steam is up.
+if [[ "$*" != *"-shutdown"* ]]; then
+  STEAM_BOTTLE="$BOTTLE" bash "$(dirname "${BASH_SOURCE[0]}")/steam-tame.sh" >/dev/null 2>&1 || true
+fi
+
+log "Launching Steam in bottle: $BOTTLE_NAME  ${*:+(args: $*)}"
+# `-cef-disable-gpu`: Steam's UI is CEF/Chromium; its GPU-accelerated compositor
+# crashes intermittently under Wine (steamwebhelper → takes down steam.exe). Software
+# CEF rendering is far more stable, the standard Steam-on-Wine fix. Not added for a
+# bare `-shutdown` (no UI needed).
+if [[ "$*" == *"-shutdown"* ]]; then
+  wine_run "$STEAM_EXE" "$@"
+else
+  wine_run "$STEAM_EXE" -cef-disable-gpu "$@"
+fi

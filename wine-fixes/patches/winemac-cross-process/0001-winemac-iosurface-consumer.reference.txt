@@ -1,0 +1,86 @@
+# winemac.drv cross-process IOSurface present consumer (Uncork)
+# Apply to dlls/winemac.drv/cocoa_window.m (add before macdrv_create_cocoa_window)
+# + add the start call inside macdrv_create_cocoa_window, + '-framework IOSurface' to Makefile.in.
+# Gated by env DXMT_CROSS_PROCESS_PRESENT=1. Pairs with dxmt-cross-process producer.
+# ---- cocoa_window.m: insert this block ----
+/***********************************************************************
+ *   Uncork cross-process present consumer
+ *
+ * DXMT's swapchain, when created in a process that does NOT own the target
+ * window (e.g. Chromium's GPU process presenting into the browser process's
+ * CEF window), renders into a shared IOSurface-backed Metal texture and
+ * registers that surface's mach port with the bootstrap server under the name
+ * "dxmt-cxpresent-<root-hwnd>". Here in the window-owning process we poll that
+ * name (~16ms), look up the IOSurface, and display it as the window's layer
+ * contents. Gated by DXMT_CROSS_PROCESS_PRESENT=1 so it is inert otherwise.
+ * See memory cef-32bit-d3dmetal-wall.
+ */
+#import <IOSurface/IOSurface.h>
+
+static void wine_cxpresent_tick(void)
+{
+    const char* prefix = getenv("WINEPREFIX");
+    if (!prefix)
+        return;
+    for (WineWindow* window in [NSApp windows])
+    {
+        if (![window isKindOfClass:[WineWindow class]] || !window.hwnd)
+            continue;
+        /* The producer (DXMT, in whatever process owns the D3D device) publishes
+         * the GLOBAL IOSurface id to C:\windows\temp\dxmt-cxpresent-<hwnd>.id,
+         * which is <prefix>/drive_c/windows/temp/... here. */
+        char path[512];
+        snprintf(path, sizeof(path), "%s/drive_c/windows/temp/dxmt-cxpresent-%llx.id",
+                 prefix, (unsigned long long)(uintptr_t)window.hwnd);
+        FILE* f = fopen(path, "r");
+        if (!f)
+            continue;
+        unsigned surface_id = 0, w = 0, h = 0;
+        int n = fscanf(f, "%u %u %u", &surface_id, &w, &h);
+        fclose(f);
+        if (n < 1 || !surface_id)
+            continue;
+        IOSurfaceRef surface = IOSurfaceLookup((IOSurfaceID)surface_id);
+        if (!surface)
+            continue;
+        CALayer* layer = window.contentView.layer;
+        if (layer)
+        {
+            layer.contents = (__bridge id)surface;
+            layer.contentsGravity = kCAGravityResize;
+            [layer setNeedsDisplay];
+        }
+        CFRelease(surface);
+    }
+}
+
+void macdrv_start_cross_process_present(void)
+{
+    if (!getenv("DXMT_CROSS_PROCESS_PRESENT"))
+        return;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0,
+                                                         dispatch_get_main_queue());
+        dispatch_source_set_timer(timer, DISPATCH_TIME_NOW, 16 * NSEC_PER_MSEC, 4 * NSEC_PER_MSEC);
+        dispatch_source_set_event_handler(timer, ^{ wine_cxpresent_tick(); });
+        dispatch_resume(timer);
+    });
+}
+
+/***********************************************************************
+ *              macdrv_create_cocoa_window
+ *
+ * Create a Cocoa window with the given content frame and features (e.g.
+ * title bar, close box, etc.).
+ */
+macdrv_window macdrv_create_cocoa_window(const struct macdrv_window_features* wf,
+        CGRect frame, void* hwnd, macdrv_event_queue queue)
+{
+    __block WineWindow* window;
+
+    OnMainThread(^{
+        window = [[WineWindow createWindowWithFeatures:wf
+                                           windowFrame:NSRectFromCGRect(cgrect_mac_from_win(frame))
+                                                  hwnd:hwnd
+                                                 queue:(WineEventQueue*)queue] retain];

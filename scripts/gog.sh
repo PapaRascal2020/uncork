@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+# gog.sh: GOG via `gogdl` (Heroic's GOG CLI, same author as legendary). GOG is
+# DRM-free, so there's no client to run: games install into the shared "gog"
+# bottle and launch directly on D3DMetal (like Epic). Thin passthrough to gogdl
+# with our config preset.
+#
+#   ./scripts/gog.sh status                 # signed in?
+#   ./scripts/gog.sh auth --code <CODE>      # one-time sign-in (browser code)
+#   ./scripts/gog.sh info <id> --platform windows
+#   ./scripts/gog.sh download <id> --platform windows --path <dir>
+#   ./scripts/gog.sh launch <path> <id>      # runs via GPTk Wine + D3DMetal
+
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/gptk.sh"   # D3DMetal launch helpers
+
+# --- gogdl (GOG CLI), RELOCATABLE ------------------------------------------
+# Same trick as legendary (see epic.sh): the bundled venv's shebangs hardcode the
+# build machine's path, so we run gogdl with the system CLT python3 (3.9) + the
+# bundled packages on PYTHONPATH, invoking the console script directly. Works on
+# any Mac with the Xcode Command Line Tools, no venv rebuild, no network.
+GOG_SCRIPT="$ENGINE_DIR/gogdl-venv/bin/gogdl"
+GOG_SP="$ENGINE_DIR/gogdl-venv/lib/python3.9/site-packages"
+PY="/usr/bin/python3"
+[[ -f "$GOG_SCRIPT" && -d "$GOG_SP" ]] || die "gogdl not bundled ($GOG_SCRIPT)."
+[[ -x "$PY" ]] || die "Python 3 not found. Install the Xcode Command Line Tools: xcode-select --install"
+GOGDL=(env "PYTHONPATH=$GOG_SP" "$PY" "$GOG_SCRIPT")
+
+# GOG games share ONE bottle (a launcher's whole library lives in its own bottle,
+# per Uncork's bottle model). DRM-free games are Metal-ready via the engine.
+BOTTLE_NAME="gog"
+BOTTLE="$BOTTLES_DIR/$BOTTLE_NAME"
+
+# gogdl stores its OAuth tokens in a json file we pass via --auth-config-path.
+# MUST be writable, so the app points UNCORK_DATA at App Support; dev default
+# keeps it beside the engine.
+GOGDL_CONFIG_PATH="${GOGDL_CONFIG_PATH:-${UNCORK_DATA:-$HOME/Library/Application Support/Uncork}/gogdl}"
+mkdir -p "$GOGDL_CONFIG_PATH"
+AUTH="$GOGDL_CONFIG_PATH/auth.json"
+
+# --- lightweight commands that don't need Wine -----------------------------
+case "${1:-}" in
+  status)
+    # Signed in if the token file has an access_token. (gogdl refreshes on use.)
+    if [[ -s "$AUTH" ]] && grep -q '"access_token"' "$AUTH" 2>/dev/null; then
+      echo "GOG account: signed in"
+    else
+      echo "GOG account: <not logged in>"
+    fi
+    exit 0 ;;
+  auth)
+    # gog.sh auth --code <CODE>  → exchange the browser code for tokens.
+    shift
+    exec "${GOGDL[@]}" --auth-config-path "$AUTH" auth "$@" ;;
+  uninstall)
+    # gog.sh uninstall <id>: GOG is DRM-free with no registration, so removing a
+    # game is just deleting its install dir (located via its goggame-<id>.info).
+    gid="${2:?usage: gog.sh uninstall <id>}"
+    info="$(find "$BOTTLE/drive_c/GOG Games" -name "goggame-$gid.info" 2>/dev/null | head -1)"
+    if [[ -n "$info" ]]; then
+      rm -rf "$(dirname "$info")" && ok "Uninstalled GOG game $gid." || die "Couldn't remove GOG game $gid."
+    else
+      warn "GOG game $gid doesn't appear to be installed."
+    fi
+    exit 0 ;;
+  library)
+    # Owned GOG games as JSON [{id,title,cover}]; gogdl has no list-games, so we
+    # query GOG's account API with the stored token. (Token is fresh right after
+    # sign-in; refresh handling is a follow-up.)
+    [[ -s "$AUTH" ]] || { echo "[]"; exit 0; }
+    exec "$PY" - "$AUTH" <<'PY'
+import json,sys,urllib.request
+try:
+    auth=json.load(open(sys.argv[1]))
+except Exception:
+    print("[]"); sys.exit(0)
+def find_token(o):
+    if isinstance(o,dict):
+        if 'access_token' in o: return o['access_token']
+        for v in o.values():
+            t=find_token(v)
+            if t: return t
+    return None
+tok=find_token(auth); out=[]
+if tok:
+    page=1
+    while True:
+        req=urllib.request.Request('https://embed.gog.com/account/getFilteredProducts?mediaType=1&page=%d'%page,
+                                   headers={'Authorization':'Bearer '+tok})
+        try:
+            d=json.load(urllib.request.urlopen(req,timeout=25))
+        except Exception:
+            break
+        for p in d.get('products',[]):
+            img=p.get('image') or ''
+            if img.startswith('//'): cover='https:'+img+'.jpg'
+            elif img: cover=img+'.jpg'
+            else: cover=''
+            # worksOn: {Windows,Mac,Linux} booleans → lets Uncork show native Mac
+            # builds in the Library's Mac tab (GOG ships real macOS builds for many).
+            works=p.get('worksOn',{}) or {}
+            out.append({'id':str(p.get('id','')),'title':p.get('title',''),'cover':cover,
+                        'worksOn':{'Windows':bool(works.get('Windows')),'Mac':bool(works.get('Mac')),'Linux':bool(works.get('Linux'))}})
+        if page>=int(d.get('totalPages',1) or 1): break
+        page+=1
+print(json.dumps(out))
+PY
+    ;;
+esac
+
+# Commands that touch a game need the GOG bottle to exist + be Metal-ready.
+case "${1:-}" in
+  launch|download|repair|update|info) ensure_bottle 2>/dev/null || true ;;
+esac
+
+# --- D3DMetal launch: direct-run the exe (bypass gogdl's env rewrite) -------
+# Like Epic, prefer D3DMetal (GPTk) when available: resolve the game's exe and
+# run it directly through GPTk Wine with our graphics env intact. gogdl still
+# handles auth/download/info. (GOG is DRM-free, so no client needs to be running.)
+if [[ "${1:-}" == "launch" ]] && gptk_available && [[ "${UNCORK_BACKEND:-d3dmetal}" == "d3dmetal" ]]; then
+  gpath="${2:?usage: gog.sh launch <install_path> <id>}"
+  gid="${3:-}"
+  # NATIVE macOS build? If a .app is present in the install dir, launch it DIRECTLY
+  # no Wine, no D3DMetal. This is how a GOG native Mac game runs (installed via
+  # `download --platform osx`). Detecting the .app means the same launch path works
+  # whether the Windows or the Mac build was installed.
+  app="$(cd "$gpath" 2>/dev/null && find . -maxdepth 3 -iname '*.app' -type d | head -1)"
+  if [[ -n "$app" ]]; then
+    status "Launching native macOS build…" 2>/dev/null || true
+    log "Launching GOG native Mac app: ${app#./}"
+    cd "$gpath"; exec /usr/bin/open "$app"
+  fi
+  # Ask gogdl for the launch command (exe + args) as JSON, then run the exe via GPTk.
+  ensure_gptk_prefix gog
+  gptk_export_env
+  exe="$(cd "$gpath" 2>/dev/null && find . -maxdepth 2 -iname '*.exe' | grep -viE 'unins|redist|vcredist|dxsetup|dotnet|crashreport' | head -1)"
+  if [[ -n "$exe" ]]; then
+    status "Launching via D3DMetal…" 2>/dev/null || true
+    log "Launching GOG game via D3DMetal (GPTk): $exe"
+    cd "$gpath"; exec "$GPTK_WINE" "$exe"
+  fi
+  warn "Couldn't resolve a game exe under '$gpath'; falling back to gogdl launch."
+fi
+
+# Fallback / non-launch passthrough. Use our bundled Wine for gogdl launch.
+args=("$@")
+if [[ "${1:-}" == "launch" ]]; then
+  printf '%s\0' "$@" | grep -qzE '^--wine$' || args+=(--wine "$WINE_BIN")
+  printf '%s\0' "$@" | grep -qzE '^--wine-prefix$' || args+=(--wine-prefix "$BOTTLE")
+  printf '%s\0' "$@" | grep -qzE '^--platform$|^--os$' || args+=(--platform windows)
+fi
+# download <id> → default to Windows into the shared GOG bottle's "GOG Games" dir.
+if [[ "${1:-}" == "download" ]]; then
+  printf '%s\0' "$@" | grep -qzE '^--platform$|^--os$' || args+=(--platform windows)
+  if ! printf '%s\0' "$@" | grep -qzE '^--path$'; then
+    mkdir -p "$BOTTLE/drive_c/GOG Games"
+    args+=(--path "$BOTTLE/drive_c/GOG Games")
+  fi
+fi
+exec "${GOGDL[@]}" --auth-config-path "$AUTH" "${args[@]}"
