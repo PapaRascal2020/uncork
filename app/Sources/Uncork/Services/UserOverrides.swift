@@ -49,6 +49,16 @@ final class UserOverrides {
         data[appid] = g; save()
     }
 
+    /// Graphics backend for a NON-Steam game ("auto" = Uncork's default, "d3dmetal",
+    /// or "dxmt"). Steam games use the profile picker instead; Epic/GOG launches read
+    /// this via UNCORK_BACKEND. "auto"/"" is stored as absent.
+    func backend(_ id: String) -> String { (data[id]?["backend"] as? String) ?? "auto" }
+    func setBackend(_ id: String, _ v: String) {
+        var g = data[id] ?? [:]
+        if v.isEmpty || v == "auto" { g.removeValue(forKey: "backend") } else { g["backend"] = v }
+        data[id] = g; save()
+    }
+
     /// Extra command-line args appended when launching this game (e.g. "-force-d3d11
     /// -windowed"). Merged after the compat DB's launch_args by play.sh.
     func launchArgs(_ appid: String) -> String { (data[appid]?["launch_args"] as? String) ?? "" }

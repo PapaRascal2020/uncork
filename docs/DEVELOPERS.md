@@ -95,8 +95,17 @@ a profile's engine on demand.
 ### User overrides: `overrides.json`
 
 Per-user, per-game choices the app writes and the scripts read: `profile`,
-`winver`, `hud`, `launch_args`, `dll_overrides`. Always wins over the shipped
-DB, so a UI toggle takes effect on the next launch.
+`backend`, `winver`, `hud`, `launch_args`, `dll_overrides`. Always wins over the
+shipped DB, so a UI toggle takes effect on the next launch.
+
+Steam games tune via the profile picker (`profile` → `compat_backend` in play.sh).
+**Epic and GOG** get a direct backend dropdown (`backend`: auto / d3dmetal / dxmt)
+plus launch options on the game page; the app passes these to `epic.sh`/`gog.sh` as
+`UNCORK_BACKEND` and `UNCORK_LAUNCH_ARGS`. Those scripts default to D3DMetal, launch
+the DXMT choice by direct-running the exe with the DXMT/Metal env (mirroring play.sh,
+so `legendary`/`gogdl launch` can't drop the graphics env or the args), and append
+the launch args to whichever path runs. So every store's games now have per-game
+compatibility options, not just Steam.
 
 ## Stores: data-driven templates
 

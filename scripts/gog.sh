@@ -159,9 +159,28 @@ if [[ "${1:-}" == "launch" ]] && gptk_available && [[ "${UNCORK_BACKEND:-d3dmeta
     game_log_init "GOG ${gpath##*/} (id ${gid:-?}), exe ${exe##*/}, backend d3dmetal"
     status "Launching via D3DMetal…" 2>/dev/null || true
     log "Launching GOG game via D3DMetal (GPTk): $exe"
-    cd "$gpath"; exec "$GPTK_WINE" "$exe" >>"$GAME_LOG" 2>&1
+    cd "$gpath"; exec "$GPTK_WINE" "$exe" ${UNCORK_LAUNCH_ARGS:-} >>"$GAME_LOG" 2>&1
   fi
   warn "Couldn't resolve a game exe under '$gpath'; falling back to gogdl launch."
+fi
+
+# Explicit DXMT backend (the compat dropdown): direct-run the exe through our
+# bundled Wine with the DXMT/Metal env + the user's launch args, mirroring the
+# Steam DXMT path. ensure_bottle above put the winemetal bridge in system32.
+if [[ "${1:-}" == "launch" && "${UNCORK_BACKEND:-}" == "dxmt" ]]; then
+  gpath="${2:?usage: gog.sh launch <install_path> <id>}"; gid="${3:-}"
+  exe="$(cd "$gpath" 2>/dev/null && find . -maxdepth 2 -iname '*.exe' | grep -viE 'unins|redist|vcredist|dxsetup|dotnet|crashreport' | head -1)"
+  [[ -n "$exe" ]] || die "Couldn't resolve a game exe under '$gpath'."
+  game_log_init "GOG ${gpath##*/} (id ${gid:-?}), exe ${exe##*/}, backend dxmt"
+  cd "$gpath"
+  for d in d3d11 dxgi d3d10core d3d9 d3d8 winemetal; do rm -f "$(dirname "$exe")/$d.dll" 2>/dev/null || true; done
+  status "Launching via DXMT…" 2>/dev/null || true
+  log "Launching GOG game via DXMT (bundled Wine): $exe"
+  env WINEPREFIX="$BOTTLE" WINEDEBUG="${WINEDEBUG:--all}" MVK_CONFIG_LOG_LEVEL="${MVK_CONFIG_LOG_LEVEL:-1}" \
+      WINEDLLOVERRIDES="d3d11,dxgi,d3d10core=b" \
+      DYLD_FALLBACK_LIBRARY_PATH="$WINE_HOME/lib:$WINE_HOME/lib/wine/x86_64-unix${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}" \
+      /usr/bin/arch -x86_64 "$WINE_BIN" "$exe" ${UNCORK_LAUNCH_ARGS:-} >>"$GAME_LOG" 2>&1
+  exit $?
 fi
 
 # Fallback / non-launch passthrough. Use our bundled Wine for gogdl launch.

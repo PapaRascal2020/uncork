@@ -78,9 +78,11 @@ fi
 # So when D3DMetal is available we resolve the exe from installed.json and run it
 # DIRECTLY through GPTk Wine with our env intact, the path proven to hit
 # D3DMetal (D3D11, "AMD Compatibility Mode"). legendary still handles list/install.
+# Resolve a field (install_path/executable) from legendary's installed.json for $app.
+read_field() { python3 -c "import json,sys; print(json.load(open('$LEGENDARY_CONFIG_PATH/installed.json')).get('$app',{}).get(sys.argv[1],''))" "$1" 2>/dev/null; }
+
 if [[ "${1:-}" == "launch" ]] && gptk_available && [[ "${UNCORK_BACKEND:-d3dmetal}" == "d3dmetal" ]]; then
   app="${2:?usage: epic.sh launch <app_name>}"
-  read_field() { python3 -c "import json,sys; print(json.load(open('$LEGENDARY_CONFIG_PATH/installed.json')).get('$app',{}).get(sys.argv[1],''))" "$1" 2>/dev/null; }
   ipath="$(read_field install_path)"; iexe="$(read_field executable)"
   [[ -n "$ipath" && -f "$ipath/$iexe" ]] || die "Epic game '$app' isn't installed (no exe under install_path)."
   ensure_gptk_prefix epic
@@ -89,13 +91,33 @@ if [[ "${1:-}" == "launch" ]] && gptk_available && [[ "${UNCORK_BACKEND:-d3dmeta
   status "Launching via D3DMetal…" 2>/dev/null || true
   log "Launching '$app' via D3DMetal (GPTk): $iexe"
   cd "$ipath"
-  exec "$GPTK_WINE" "$iexe" >>"$GAME_LOG" 2>&1
+  exec "$GPTK_WINE" "$iexe" ${UNCORK_LAUNCH_ARGS:-} >>"$GAME_LOG" 2>&1
 fi
 
 # Commands that actually run Wine need the Epic bottle to exist + be DXMT-ready.
 case "${1:-}" in
   launch|install|download|update|repair|verify) ensure_bottle ;;
 esac
+
+# Explicit DXMT backend (the compat dropdown): direct-run the exe through our
+# bundled Wine with the DXMT/Metal env, mirroring the Steam DXMT path, so the game
+# gets DXMT graphics + the user's launch args (legendary launch would drop both).
+# ensure_bottle above put the winemetal bridge in the bottle's system32.
+if [[ "${1:-}" == "launch" && "${UNCORK_BACKEND:-}" == "dxmt" ]]; then
+  app="${2:?usage: epic.sh launch <app_name>}"
+  ipath="$(read_field install_path)"; iexe="$(read_field executable)"
+  [[ -n "$ipath" && -f "$ipath/$iexe" ]] || die "Epic game '$app' isn't installed (no exe under install_path)."
+  game_log_init "Epic $app, exe $iexe, backend dxmt"
+  for d in d3d11 dxgi d3d10core d3d9 d3d8 winemetal; do rm -f "$ipath/$d.dll"; done
+  status "Launching via DXMT…" 2>/dev/null || true
+  log "Launching '$app' via DXMT (bundled Wine): $iexe"
+  cd "$ipath"
+  env WINEPREFIX="$BOTTLE" WINEDEBUG="${WINEDEBUG:--all}" MVK_CONFIG_LOG_LEVEL="${MVK_CONFIG_LOG_LEVEL:-1}" \
+      WINEDLLOVERRIDES="d3d11,dxgi,d3d10core=b" \
+      DYLD_FALLBACK_LIBRARY_PATH="$WINE_HOME/lib:$WINE_HOME/lib/wine/x86_64-unix${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}" \
+      /usr/bin/arch -x86_64 "$WINE_BIN" "$iexe" ${UNCORK_LAUNCH_ARGS:-} >>"$GAME_LOG" 2>&1
+  exit $?
+fi
 
 # Uncork runs Windows games via Wine, so operate on the WINDOWS library, not
 # just the handful of titles that happen to ship a native macOS build (which is

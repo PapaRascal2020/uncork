@@ -15,11 +15,13 @@ enum LaunchService {
         if diagnostic { logEnv["UNCORK_DIAGNOSTIC"] = "1" }
         switch game.source {
         case .steam: return process("play.sh", [game.launchID], env: logEnv)
-        case .epic:  return process("epic.sh", ["launch", game.launchID, "--skip-version-check"], env: logEnv)
+        case .epic:  return process("epic.sh", ["launch", game.launchID, "--skip-version-check"],
+                                    env: logEnv.merging(compatEnv(game)) { _, b in b })
         case .gog:
             // gog.sh launch <install_path> <id>: direct-launches the exe on D3DMetal.
             let path = Paths.data + "/bottles/gog/drive_c/GOG Games/" + game.installDir
-            return process("gog.sh", ["launch", path, game.launchID], env: logEnv)
+            return process("gog.sh", ["launch", path, game.launchID],
+                           env: logEnv.merging(compatEnv(game)) { _, b in b })
         case .custom:
             guard let exe = game.exePath else { return nil }
             // Native Mac game → run the .app directly (no Wine, no bottle).
@@ -27,6 +29,18 @@ enum LaunchService {
             return process("run-exe.sh", [exe, game.launchID],
                            env: logEnv.merging(["BOTTLE_NAME": game.bottle ?? "steam"]) { _, b in b })
         }
+    }
+
+    /// Per-game compatibility env for Epic/GOG launches, from the user's overrides:
+    /// backend choice (UNCORK_BACKEND, only when explicitly D3DMetal/DXMT) and extra
+    /// launch args (UNCORK_LAUNCH_ARGS). Steam gets these through play.sh + the DB.
+    private static func compatEnv(_ game: InstalledGame) -> [String: String] {
+        var env: [String: String] = [:]
+        let b = UserOverrides.shared.backend(game.launchID)
+        if b == "d3dmetal" || b == "dxmt" { env["UNCORK_BACKEND"] = b }
+        let a = UserOverrides.shared.launchArgs(game.launchID)
+        if !a.isEmpty { env["UNCORK_LAUNCH_ARGS"] = a }
+        return env
     }
 
     private static func process(_ script: String, _ args: [String], env: [String: String] = [:]) -> Process {

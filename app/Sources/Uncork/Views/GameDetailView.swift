@@ -19,6 +19,7 @@ struct GameDetailView: View {
     @ObservedObject private var repair = RepairService.shared
 
     @State private var profile = "auto"
+    @State private var backend = "auto"        // Epic/GOG graphics backend override
     @State private var hudOn = false
     @State private var winver = ""
     @State private var launchArgs = ""
@@ -44,6 +45,7 @@ struct GameDetailView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     actionRow
                     if showsProfiles { compatibilityCard }
+                    else if game.source == .epic || game.source == .gog { backendCompatCard }
                     else { simpleCompatCard }
                     if let ac = antiCheat { antiCheatCard(ac) }
                     performanceCard
@@ -64,12 +66,14 @@ struct GameDetailView: View {
         }
         .onAppear {
             profile = UserOverrides.shared.profile(game.launchID)
+            backend = UserOverrides.shared.backend(game.launchID)
             hudOn = UserOverrides.shared.hud(game.launchID)
             winver = UserOverrides.shared.winver(game.launchID)
             launchArgs = UserOverrides.shared.launchArgs(game.launchID)
             dllOverrides = UserOverrides.shared.dllOverridesString(game.launchID)
         }
         .onChange(of: profile) { _, v in UserOverrides.shared.setProfile(game.launchID, v) }
+        .onChange(of: backend) { _, v in UserOverrides.shared.setBackend(game.launchID, v) }
         .onChange(of: hudOn)   { _, v in UserOverrides.shared.setHUD(game.launchID, v) }
         .onChange(of: winver)  { _, v in UserOverrides.shared.setWinver(game.launchID, v) }
         .onChange(of: launchArgs) { _, v in UserOverrides.shared.setLaunchArgs(game.launchID, v) }
@@ -238,6 +242,34 @@ struct GameDetailView: View {
             HStack { GameCompatBadge(compat: compat); Spacer()
                 if let tier = pdb.tier(for: game) { ProtonBadge(tier: tier) } }
             Text(compat.detail).font(.system(size: 12)).foregroundStyle(.secondary)
+        }
+    }
+
+    /// Epic/GOG: the verdict plus a graphics-backend dropdown and launch options, so
+    /// these games get the same per-game tuning Steam has. Takes effect next launch.
+    private var backendCompatCard: some View {
+        card(icon: "checkmark.seal", title: "Compatibility") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack { GameCompatBadge(compat: compat); Spacer()
+                    if let tier = pdb.tier(for: game) { ProtonBadge(tier: tier) } }
+                Text(compat.detail).font(.system(size: 12)).foregroundStyle(.secondary)
+                Divider().opacity(0.4)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Graphics backend").font(.system(size: 13, weight: .medium))
+                    Picker("", selection: $backend) {
+                        Text("Auto (recommended)").tag("auto")
+                        Text("D3DMetal (Game Porting Toolkit)").tag("d3dmetal")
+                        Text("DXMT (Wine + Metal)").tag("dxmt")
+                    }.labelsHidden().pickerStyle(.menu)
+                    Text("If a game crashes or won't render on one, switch to the other and launch again.")
+                        .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Launch options").font(.system(size: 13, weight: .medium))
+                    TextField("e.g. -force-d3d11-no-singlethreaded", text: $launchArgs)
+                        .textFieldStyle(.roundedBorder).font(.system(size: 12, design: .monospaced))
+                }
+            }
         }
     }
 
