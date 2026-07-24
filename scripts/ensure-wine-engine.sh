@@ -32,9 +32,11 @@ case "$ID" in
       ok "wine-stable (DXMT) already present."; exit 0
     fi
     dest="$UNCORK_DATA_DIR/engine/wine-stable"
-    step 5 "Downloading Wine + DirectX (DXMT)…"
     tb="$CACHE/wine-stable.tar.gz"
-    curl -L --fail --progress-bar "$WINE_STABLE_ASSET_URL" -o "$tb" \
+    # Real byte-progress (scaled into 5..65) so a launch-time self-heal shows a
+    # moving percentage on the Play button rather than looking stalled while ~400 MB
+    # downloads. download_progress emits @@STEP@@ lines the app renders.
+    download_progress "$WINE_STABLE_ASSET_URL" "$tb" 5 65 "Downloading Wine + DirectX (DXMT)…" \
       || die "Couldn't download wine-stable from $WINE_STABLE_ASSET_URL (host it with: scripts/upload-assets.sh wine-stable)."
     step 70 "Extracting Wine…"
     rm -rf "$dest"; mkdir -p "$dest"

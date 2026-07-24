@@ -50,15 +50,30 @@ final class RunStore: ObservableObject {
             guard !d.isEmpty, let s = String(data: d, encoding: .utf8) else { return }
             for raw in s.split(whereSeparator: \.isNewline) {
                 let line = String(raw)
-                guard let r = line.range(of: "@@STATUS@@ ") else { continue }
-                let msg = String(line[r.upperBound...]).trimmingCharacters(in: .whitespaces)
+                var msg: String? = nil
+                if let r = line.range(of: "@@STATUS@@ ") {
+                    msg = String(line[r.upperBound...]).trimmingCharacters(in: .whitespaces)
+                } else if let r = line.range(of: "@@STEP@@ ") {
+                    // Progress from a long step the launch triggers (e.g. a slim
+                    // install re-fetching its DirectX engine, or first-use game
+                    // libraries): "@@STEP@@ <pct> <label>". Show "label pct%" so the
+                    // button reflects a ~400 MB download instead of looking stalled.
+                    let parts = line[r.upperBound...].split(separator: " ", maxSplits: 1)
+                    let pct = parts.first.flatMap { Int($0) }
+                    let label = parts.count > 1 ? String(parts[1]).trimmingCharacters(in: .whitespaces) : ""
+                    if !label.isEmpty {
+                        msg = (pct.map { $0 > 0 && $0 < 100 ? "\(label) \($0)%" : label }) ?? label
+                    }
+                }
+                guard let m = msg, !m.isEmpty else { continue }
                 DispatchQueue.main.async {
                     guard self?.states[id] == .launching else { return }
-                    self?.launchMessage[id] = msg
+                    self?.launchMessage[id] = m
                     // Keep the toast spinner + live status visible through the whole
-                    // launch: each status line re-arms it, so it doesn't vanish after
-                    // a few seconds while Steam signs in / the game decrypts.
-                    ActivityStore.shared.show(msg, seconds: 20)
+                    // launch: each line re-arms it, so it doesn't vanish after a few
+                    // seconds while Steam signs in / the game decrypts / an engine
+                    // downloads.
+                    ActivityStore.shared.show(m, seconds: 20)
                 }
             }
         }
