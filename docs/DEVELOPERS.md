@@ -222,6 +222,13 @@ game page (copy / reveal / refresh). Note the default launch keeps `WINEDEBUG=-a
 so Wine's internal channels are quiet: the log is the game's output plus Uncork's
 narration, not a full Wine trace.
 
+**Diagnostic relaunch.** The game page's "Relaunch with diagnostics" button launches
+with `UNCORK_DIAGNOSTIC=1`. When set (and the user hasn't pinned `WINEDEBUG`), `lib.sh`
+raises the level to `WINEDEBUG=err+all,fixme-all`, so the log then captures Wine's own
+errors (dll load failures, HRESULTs, device-creation errors), with fixme kept off to
+avoid flooding. The log header records that diagnostic mode was on. It rides the same
+`${WINEDEBUG:--all}` every launch site already reads, so no per-path change is needed.
+
 On quit, Uncork sends the prewarmed Steam client a clean `-shutdown` **off the
 main thread**, hides its window, and shows a small "Closing" HUD, so app-quit is
 a deliberate step, not a frozen window.

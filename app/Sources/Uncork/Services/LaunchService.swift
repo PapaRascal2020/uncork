@@ -7,9 +7,12 @@ enum LaunchService {
     /// (RunStore) can stream its @@STATUS@@ output and manage its lifecycle.
     /// Steam → play.sh (Steam hidden, launched via -applaunch); Epic → legendary
     /// (epic.sh); custom → run-exe.sh in the game's own bottle.
-    static func launchProcess(for game: InstalledGame) -> Process? {
+    static func launchProcess(for game: InstalledGame, diagnostic: Bool = false) -> Process? {
         // Every launch writes to a per-game log the scripts read from UNCORK_GAME_LOG.
-        let logEnv = ["UNCORK_GAME_LOG": GameLog.path(for: game)]
+        // A diagnostic relaunch also raises the Wine log level (UNCORK_DIAGNOSTIC=1),
+        // so the log captures Wine's own errors, not just the game's output.
+        var logEnv = ["UNCORK_GAME_LOG": GameLog.path(for: game)]
+        if diagnostic { logEnv["UNCORK_DIAGNOSTIC"] = "1" }
         switch game.source {
         case .steam: return process("play.sh", [game.launchID], env: logEnv)
         case .epic:  return process("epic.sh", ["launch", game.launchID, "--skip-version-check"], env: logEnv)

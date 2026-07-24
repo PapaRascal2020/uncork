@@ -33,14 +33,14 @@ final class RunStore: ObservableObject {
     func state(_ id: String) -> RunState { states[id] ?? .idle }
     func status(_ id: String) -> String? { launchMessage[id] }
 
-    func launch(_ game: InstalledGame) {
+    func launch(_ game: InstalledGame, diagnostic: Bool = false) {
         let id = game.id
         states[id] = .launching
-        launchMessage[id] = "Starting…"
+        launchMessage[id] = diagnostic ? "Starting (diagnostic)…" : "Starting…"
         patterns[id] = game.installDir.isEmpty ? game.title : game.installDir
         deadline[id] = nil   // don't count down while the launch script runs
 
-        guard let p = LaunchService.launchProcess(for: game) else {
+        guard let p = LaunchService.launchProcess(for: game, diagnostic: diagnostic) else {
             states[id] = .failed; launchMessage[id] = "Couldn't start the launcher"; return
         }
         let pipe = Pipe(); p.standardOutput = pipe; p.standardError = pipe

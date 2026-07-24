@@ -319,12 +319,26 @@ struct GameDetailView: View {
 
     private var dangerZone: some View {
         VStack(spacing: 10) {
-            Button { showLog = true } label: {
-                Label("View launch log", systemImage: "doc.text.magnifyingglass")
-                    .font(.system(size: 12, weight: .semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
+            HStack(spacing: 10) {
+                Button { showLog = true } label: {
+                    Label("View launch log", systemImage: "doc.text.magnifyingglass")
+                        .font(.system(size: 12, weight: .semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
+                }
+                .buttonStyle(.plain).foregroundStyle(DS.accent).background(Capsule().fill(DS.accent.opacity(0.12)))
+                .help("See what happened on the last launch (the game's own output and Uncork's steps). Useful when a game won't start")
+
+                if game.installed {
+                    let busy = run.state(game.id) == .launching || run.state(game.id) == .running
+                    Button { run.launch(game, diagnostic: true) } label: {
+                        Label("Relaunch with diagnostics", systemImage: "stethoscope")
+                            .font(.system(size: 12, weight: .semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
+                    }
+                    .buttonStyle(.plain).foregroundStyle(DS.accent)
+                    .background(Capsule().fill(DS.accent.opacity(busy ? 0.05 : 0.12)))
+                    .disabled(busy)
+                    .help("Launch again with extra Wine logging turned on, then open the log. Use this when the normal log doesn't show why a game fails")
+                }
             }
-            .buttonStyle(.plain).foregroundStyle(DS.accent).background(Capsule().fill(DS.accent.opacity(0.12)))
-            .help("See what happened on the last launch (the game's own output and Uncork's steps). Useful when a game won't start")
             if game.source == .steam {
                 Button { LaunchService.applyFixes(game) } label: {
                     Label("Apply fixes from database", systemImage: "wrench.and.screwdriver")

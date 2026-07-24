@@ -143,12 +143,24 @@ apply_dxvk_to_game() {
 # below mirror their narration here too, so there is a useful record even when Wine
 # itself is quiet (WINEDEBUG=-all).
 GAME_LOG="${UNCORK_GAME_LOG:-/dev/null}"
+# Diagnostic relaunch: when the app requests it (UNCORK_DIAGNOSTIC=1) and the user
+# has not pinned WINEDEBUG, raise the Wine log level so the game log captures Wine's
+# OWN errors (dll load failures, HRESULTs, device-creation errors) instead of the
+# near-silent default. Every launch site reads ${WINEDEBUG:--all}, so exporting it
+# here reaches them all. fixme stays off: it floods the log without helping triage.
+if [[ "${UNCORK_DIAGNOSTIC:-}" == "1" && -z "${WINEDEBUG:-}" ]]; then
+  export WINEDEBUG="err+all,fixme-all"
+fi
 _glog() { [[ -n "${UNCORK_GAME_LOG:-}" ]] || return 0; printf '%s\n' "$*" >> "$UNCORK_GAME_LOG" 2>/dev/null || true; }
 # Start a fresh log with a header (called once at the top of a launch).
 game_log_init() {  # <header line>
   [[ -n "${UNCORK_GAME_LOG:-}" ]] || return 0
   mkdir -p "$(dirname "$UNCORK_GAME_LOG")" 2>/dev/null || true
-  { printf '==== Uncork launch %s ====\n%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; } > "$UNCORK_GAME_LOG" 2>/dev/null || true
+  {
+    printf '==== Uncork launch %s ====\n%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
+    [[ "${UNCORK_DIAGNOSTIC:-}" == "1" ]] && printf 'diagnostic mode on (WINEDEBUG=%s)\n' "${WINEDEBUG:-}"
+    true
+  } > "$UNCORK_GAME_LOG" 2>/dev/null || true
 }
 
 c_blue=$'\033[34m'; c_green=$'\033[32m'; c_yellow=$'\033[33m'; c_red=$'\033[31m'; c_off=$'\033[0m'
