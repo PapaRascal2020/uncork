@@ -41,10 +41,10 @@ enum GameCompat: String {
         }
     }
 
-    /// Verdict for a game, from the compat DB (by Steam appid). Unknown -> untested.
+    /// Verdict for a game from the compat DB, keyed by launch id (Steam appid, Epic
+    /// app_name, GOG id). Unknown -> untested.
     static func of(_ game: InstalledGame) -> GameCompat {
-        guard game.source == .steam else { return CompatDB.shared.verdict(forEpic: game.title) }
-        return CompatDB.shared.verdict(appid: game.launchID)
+        CompatDB.shared.verdict(appid: game.launchID)
     }
 }
 
@@ -52,11 +52,13 @@ enum GameCompat: String {
 struct CompatFix: Identifiable, Hashable {
     let appid: String
     let title: String
+    let store: String          // "steam" / "epic" / "gog" / ""
     let verdict: GameCompat
     let backend: String
     let launchArgs: String
     let winver: String
     let anticheat: String
+    let virtualDesktop: Bool
     let notes: String
     var id: String { appid }
 }
@@ -104,14 +106,22 @@ final class CompatDB {
         games.map { appid, g in
             CompatFix(appid: appid,
                       title: (g["title"] as? String) ?? appid,
+                      store: (g["store"] as? String) ?? "",
                       verdict: verdict(appid: appid),
                       backend: (g["backend"] as? String) ?? "",
                       launchArgs: (g["launch_args"] as? String) ?? "",
                       winver: (g["winver"] as? String) ?? "",
                       anticheat: (g["anticheat"] as? String) ?? "",
+                      virtualDesktop: (g["virtual_desktop"] as? Bool) ?? false,
                       notes: (g["notes"] as? String) ?? "")
         }.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
+
+    /// Shipped DB defaults for a game by launch id (Steam appid / Epic app_name /
+    /// GOG id), used to apply the documented fix when the user hasn't overridden it.
+    func dbBackend(_ id: String) -> String { (games[id]?["backend"] as? String) ?? "" }
+    func dbLaunchArgs(_ id: String) -> String { (games[id]?["launch_args"] as? String) ?? "" }
+    func dbVirtualDesktop(_ id: String) -> Bool { (games[id]?["virtual_desktop"] as? Bool) ?? false }
 
     private func map(_ raw: String) -> GameCompat {
         switch raw {

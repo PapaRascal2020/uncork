@@ -15,8 +15,10 @@ enum LaunchService {
         var base = ["UNCORK_GAME_LOG": GameLog.path(for: game)]
         if diagnostic { base["UNCORK_DIAGNOSTIC"] = "1" }
         // Fullscreen-safe (virtual desktop): pass the screen size so the launch
-        // scripts wrap the game in a screen-sized Wine desktop. Applies to any store.
-        if UserOverrides.shared.virtualDesktop(game.launchID) { base["UNCORK_DESKTOP"] = screenWxH() }
+        // scripts wrap the game in a screen-sized Wine desktop. Applies to any store;
+        // user toggle wins, else the shipped compat-DB default for this game.
+        if UserOverrides.shared.virtualDesktop(game.launchID)
+            || CompatDB.shared.dbVirtualDesktop(game.launchID) { base["UNCORK_DESKTOP"] = screenWxH() }
         switch game.source {
         case .steam: return process("play.sh", [game.launchID], env: base)
         case .epic:  return process("epic.sh", ["launch", game.launchID, "--skip-version-check"],
@@ -47,9 +49,13 @@ enum LaunchService {
     /// launch args (UNCORK_LAUNCH_ARGS). Steam gets these through play.sh + the DB.
     private static func compatEnv(_ game: InstalledGame) -> [String: String] {
         var env: [String: String] = [:]
-        let b = UserOverrides.shared.backend(game.launchID)
+        // Backend: the user's choice wins; otherwise the shipped compat-DB default.
+        var b = UserOverrides.shared.backend(game.launchID)
+        if b == "auto" { b = CompatDB.shared.dbBackend(game.launchID) }
         if b == "d3dmetal" || b == "dxmt" { env["UNCORK_BACKEND"] = b }
-        let a = UserOverrides.shared.launchArgs(game.launchID)
+        // Launch args: user's, else the DB's.
+        var a = UserOverrides.shared.launchArgs(game.launchID)
+        if a.isEmpty { a = CompatDB.shared.dbLaunchArgs(game.launchID) }
         if !a.isEmpty { env["UNCORK_LAUNCH_ARGS"] = a }
         return env
     }

@@ -39,7 +39,8 @@
       "winver": "win10",
       "launch_args": "-rdevice dx11",
       "verdict": "works",
-      "notes": "Force the DirectX 11 renderer with -rdevice dx11 so the game draws through D3DMetal. Its default/OpenGL path fails under Wine on macOS with 'no valid graphics device was found' (seen on M1). Confirmed working on Apple Silicon with this flag. If it still errors, delete config.cfg in the game's Documents folder (it can cache a bad renderer) and relaunch."
+      "notes": "Force the DirectX 11 renderer with -rdevice dx11 so the game draws through D3DMetal. Its default/OpenGL path fails under Wine on macOS with 'no valid graphics device was found' (seen on M1). Confirmed working on Apple Silicon with this flag. If it still errors, delete config.cfg in the game's Documents folder (it can cache a bad renderer) and relaunch.",
+      "store": "steam"
     },
     "312990": {
       "title": "The Expendabros",
@@ -54,7 +55,9 @@
       "backend": "dxmt",
       "launch_args": "-force-d3d11-no-singlethreaded -screen-fullscreen 0",
       "verdict": "works",
-      "notes": "32-bit Unity. Reaches main menu on the 32-bit DXMT build. REQUIRES -force-d3d11-no-singlethreaded: without it Unity's multithreaded D3D11 device creation spins on DXMT (100% CPU, stuck at 'GfxDevice: creating device client', no window). -screen-fullscreen 0 keeps it windowed for a reliable first-run. Earlier 'could not load d3d11.dll (80029c4a)' was not a DXMT crash: no i386 DXMT existed and a stale DXVK-era 'native' registry override forced a non-builtin d3d11. Fixed by the i386 DXMT build + the DXMT path clearing stale native overrides + forcing d3d11/dxgi/d3d10core=builtin in play.sh."
+      "notes": "32-bit Unity. Reaches main menu on the 32-bit DXMT build. REQUIRES -force-d3d11-no-singlethreaded: without it Unity's multithreaded D3D11 device creation spins on DXMT (100% CPU, stuck at 'GfxDevice: creating device client', no window). -screen-fullscreen 0 keeps it windowed for a reliable first-run. Earlier 'could not load d3d11.dll (80029c4a)' was not a DXMT crash: no i386 DXMT existed and a stale DXVK-era 'native' registry override forced a non-builtin d3d11. Fixed by the i386 DXMT build + the DXMT path clearing stale native overrides + forcing d3d11/dxgi/d3d10core=builtin in play.sh.",
+      "store": "steam",
+      "winver": "win81"
     },
     "960090": {
       "title": "Bloons TD 6",
@@ -68,7 +71,8 @@
       "engine": "Unity",
       "backend": "dxmt",
       "verdict": "works",
-      "notes": "Unity D3D11 -> DXMT. Requires the leftover wined3d/DXVK d3d dlls to be stripped from system32/syswow64 (autoconfigure does this) so the 'native' override falls through to the DXMT builtin."
+      "notes": "Unity D3D11 title; runs on DXMT/Metal. Verified working.",
+      "store": "steam"
     },
     "359870": {
       "title": "FINAL FANTASY FFX/FFX-2 HD Remaster",
@@ -76,16 +80,116 @@
       "backend": "dxmt",
       "verdict": "works",
       "launch_exe": "FFX&X-2_LAUNCHER.exe",
-      "winetricks": ["dotnet40"],
+      "winetricks": [
+        "dotnet40"
+      ],
       "notes": ".NET/WPF launcher fails on Wine-Mono ('fatal error in the mono runtime'); needs real .NET 4.0 (dotnet40 is enough; dotnet48 not required). IMPORTANT: the winetricks .NET install spins forever in ngen/mscorsvw on Wine -> the installer must cap/kill mscorsvw (see autoconfigure ngen handling). Launch via the launcher, then pick FFX or FFX-2."
     },
     "355790": {
       "title": "Styx: Shards of Darkness",
       "engine": "UE4",
       "backend": "dxmt",
-      "verdict": "needs-work",
+      "verdict": "works",
       "launch_exe": "Styx2/Binaries/Win64/Styx2-Win64-Shipping.exe",
-      "notes": "UE4 4.13, feature level 11 + GEOMETRY SHADERS. Works on Proton because Vulkan has geometry shaders; Metal does not, so DXMT must emulate them (or use D3DMetal). Launch the Win64 shipping exe directly, not the Styx2.exe launcher. Not yet working on Metal."
+      "notes": "UE4 title; runs on DXMT/Metal. Verified working.",
+      "store": "steam"
+    },
+    "639c5116ad7d4f31856c34aacda45f2d": {
+      "title": "Styx: Master of Shadows",
+      "store": "epic",
+      "verdict": "works",
+      "notes": "Runs on the default D3DMetal backend."
+    },
+    "f7cc1c999ac146f39b356f53e3489514": {
+      "title": "Rise of the Tomb Raider: 20 Year Celebration",
+      "store": "epic",
+      "verdict": "works",
+      "notes": "Runs on the default D3DMetal backend."
+    },
+    "f38de9fa4c6d43eabac080942cb394a1": {
+      "title": "Never Alone (Kisima Ingitchuna)",
+      "store": "epic",
+      "verdict": "works",
+      "notes": "Runs on the default D3DMetal backend."
+    },
+    "8e425d507bd6473dbb927f0fea8ef4f6": {
+      "title": "Torchlight II",
+      "store": "epic",
+      "verdict": "works",
+      "backend": "dxmt",
+      "virtual_desktop": true,
+      "notes": "Runs on the DXMT backend with the Fullscreen (safe) window."
+    },
+    "Catnip": {
+      "title": "Borderlands 3",
+      "store": "epic",
+      "verdict": "works",
+      "notes": "Runs on the default D3DMetal backend."
+    },
+    "1be5efb848844b1dabf9d67f8017a7ae": {
+      "title": "Redout: Enhanced Edition",
+      "store": "epic",
+      "verdict": "works",
+      "notes": "Runs on the default D3DMetal backend."
+    },
+    "8c5172fc5e454598aab78a4a19791638": {
+      "title": "Super Crazy Rhythm Castle",
+      "store": "epic",
+      "verdict": "works",
+      "virtual_desktop": true,
+      "notes": "Runs on the default backend with the Fullscreen (safe) window."
+    },
+    "087f062df2574091a67fe614a6ec15a4": {
+      "title": "Riverbond",
+      "store": "epic",
+      "verdict": "works",
+      "notes": "Runs on the default D3DMetal backend."
+    },
+    "0d35a1d0eade40c5ac0bea5eed8b5338": {
+      "title": "Saints Row IV Re-Elected",
+      "store": "epic",
+      "verdict": "works",
+      "notes": "Runs on the default D3DMetal backend."
+    },
+    "aa78f7be2ee64193b6b6444c5fc50157": {
+      "title": "Among the Sleep - Enhanced Edition",
+      "store": "epic",
+      "verdict": "works",
+      "notes": "Runs on the default D3DMetal backend."
+    },
+    "bb406082b69a47208489d3616b22b5c2": {
+      "title": "Horizon Chase Turbo",
+      "store": "epic",
+      "verdict": "works",
+      "backend": "dxmt",
+      "notes": "Crashes at first frame on D3DMetal; runs on the DXMT backend."
+    },
+    "cb28095340aa4bb8ace6f42c9a6e5f13": {
+      "title": "Rugrats: Adventures in Gameland",
+      "store": "epic",
+      "verdict": "works",
+      "notes": "Runs on the default D3DMetal backend."
+    },
+    "818447bb519b46d48d365d5753362796": {
+      "title": "Sonic Mania",
+      "store": "epic",
+      "verdict": "works",
+      "backend": "dxmt",
+      "virtual_desktop": true,
+      "notes": "Needs the Epic EOS launch args (passed automatically). Runs on DXMT; use Fullscreen (safe), exclusive fullscreen crashes on the mode switch."
+    },
+    "5b60142e120c4f2d88027595c21d4a04": {
+      "title": "DOOM 64",
+      "store": "epic",
+      "verdict": "works",
+      "backend": "dxmt",
+      "notes": "Runs on the DXMT backend."
+    },
+    "fd51551d919847beb178985f6daf0306": {
+      "title": "Tunche",
+      "store": "epic",
+      "verdict": "works",
+      "notes": "Runs on the default D3DMetal backend."
     }
   }
 }

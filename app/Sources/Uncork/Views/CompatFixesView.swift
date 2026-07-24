@@ -68,10 +68,16 @@ struct CompatFixesView: View {
 
     private func fixCard(_ f: CompatFix) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack { Text(f.title).font(.system(size: 14, weight: .semibold)); Spacer(); GameCompatBadge(compat: f.verdict) }
+            HStack {
+                if !f.store.isEmpty { chip(f.store.capitalized) }
+                Text(f.title).font(.system(size: 14, weight: .semibold))
+                Spacer()
+                GameCompatBadge(compat: f.verdict)
+            }
             HStack(spacing: 6) {
                 if !f.backend.isEmpty { chip(f.backend.uppercased(), DS.accent) }
                 if !f.winver.isEmpty { chip(f.winver) }
+                if f.virtualDesktop { chip("fullscreen: safe") }
                 if !f.anticheat.isEmpty { chip("anti-cheat: \(f.anticheat)", .red) }
                 Spacer(minLength: 0)
             }

@@ -109,6 +109,13 @@ The **Compatibility page** (`CompatFixesView`) surfaces this record: `CompatDB.a
 lists every documented game fix from `gamefixes.json` (verdict, backend, args, notes),
 and `UserOverrides.summary()` lists the player's own per-game changes.
 
+`gamefixes.json` is keyed by launch id, so **Epic/GOG games are keyed by their
+legendary app_name / GOG id** (with a `store` field), not just Steam appids. Their
+verdicts show in the library (`GameCompat.of` reads by launch id), and the launch
+applies the DB's `backend` / `launch_args` / `virtual_desktop` as defaults when the
+user hasn't overridden them (`CompatDB.dbBackend/dbLaunchArgs/dbVirtualDesktop`, via
+`LaunchService`). So a documented fix ships to everyone, not just the tester.
+
 Steam games tune via the profile picker (`profile` → `compat_backend` in play.sh).
 **Epic and GOG** get a direct backend dropdown (`backend`: auto / d3dmetal / dxmt)
 plus launch options on the game page; the app passes these to `epic.sh`/`gog.sh` as
