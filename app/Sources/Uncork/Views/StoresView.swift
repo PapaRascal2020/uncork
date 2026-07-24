@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// The home screen: a hub of game stores/launchers.
 struct StoresView: View {
@@ -25,7 +26,9 @@ struct StoresView: View {
                     ForEach(registry.installed) { launcher in
                         LauncherCard(launcher: launcher, connected: connected(for: launcher.id),
                                      loading: !loaded, onOpen: { selected = launcher },
-                                     onRemove: { registry.uninstall(launcher.id) })
+                                     onRemove: { registry.uninstall(launcher.id) },
+                                     onInstallLocation: InstallLocationService.supports(launcher.id)
+                                         ? { pickInstallLocation(launcher.id) } : nil)
                             .contextMenu {
                                 Button(role: .destructive) {
                                     registry.uninstall(launcher.id)
@@ -73,6 +76,19 @@ struct StoresView: View {
         }
     }
 
+    /// Choose the folder where a store's games download; the service moves any
+    /// existing games there and symlinks the store's install root to it.
+    private func pickInstallLocation(_ id: String) {
+        let svc = InstallLocationService.shared
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false
+        panel.prompt = "Use This Folder"
+        panel.message = "Choose where \(id.capitalized) games download. Games already installed move here."
+        let cur = svc.current(store: id)
+        if !cur.isEmpty, FileManager.default.fileExists(atPath: cur) { panel.directoryURL = URL(fileURLWithPath: cur) }
+        if panel.runModal() == .OK, let url = panel.url { svc.set(store: id, path: url.path) }
+    }
+
     private func refresh() {
         registry.refresh()
         DispatchQueue.global(qos: .userInitiated).async {
@@ -115,6 +131,8 @@ struct LauncherCard: View {
     /// Remove this store (delete its bottle / native app / forget it). Shown in the
     /// card's overflow menu so removal is discoverable, not hidden.
     var onRemove: (() -> Void)? = nil
+    /// Choose where this store's games download (Epic/GOG). nil = not offered.
+    var onInstallLocation: (() -> Void)? = nil
 
     // connected == nil → store has no sign-in (use install state).
     // connected == true → signed in.  connected == false → sign-in needed.
@@ -174,6 +192,9 @@ struct LauncherCard: View {
                         Spacer()
                         Menu {
                             Button { onOpen() } label: { Label("Details & compatibility", systemImage: "info.circle") }
+                            if let onInstallLocation {
+                                Button(action: onInstallLocation) { Label("Install location…", systemImage: "folder") }
+                            }
                             if let onRemove {
                                 Divider()
                                 Button(role: .destructive, action: onRemove) { Label("Remove store", systemImage: "trash") }

@@ -73,6 +73,13 @@ final class CompatDB {
 
     /// Optional per-game note (shown in the Compatibility detail).
     func note(appid: String) -> String? { games[appid]?["notes"] as? String }
+    /// Anti-cheat technology that blocks this title on Apple Silicon (e.g. "Easy
+    /// Anti-Cheat", "BattlEye"), or nil. EAC/BattlEye have no macOS runtime, so a
+    /// flagged title can't run online here whatever the graphics backend.
+    func anticheat(appid: String) -> String? {
+        let v = games[appid]?["anticheat"] as? String
+        return (v?.isEmpty ?? true) ? nil : v
+    }
     /// Preferred launch exe from the DB, if any.
     func launchExe(appid: String) -> String? { games[appid]?["launch_exe"] as? String }
     /// Runtime components (winetricks verbs) this game needs, e.g. ["dotnet40"].

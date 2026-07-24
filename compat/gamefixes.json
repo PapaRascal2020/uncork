@@ -1,6 +1,6 @@
 {
   "_comment": "Uncork protonfixes-for-Mac database. One source of truth for per-game fixes, read by scripts/autoconfigure.sh (applies fixes), scripts/play.sh (launch exe/env/args/HUD), and the app (GameCompat verdicts). Data-driven so it updates without rebuilding the app. Seeded from Metal testing (ProtonDB is a hint, not gospel: Metal is not Vulkan). Modeled on Proton's protonfixes.",
-  "_schema_fields": "Per game: title, engine, backend, verdict(works|needs-work|unsupported|untested), launch_exe (relative), winetricks[] (runtime verbs), env{} (extra env vars, e.g. {\"MTL_HUD_ENABLED\":\"1\"}), launch_args (string appended to the exe), hud (bool: default Metal perf HUD), drm (bool: force/disable the Steam-DRM launch path; when unset, play.sh auto-detects SteamStub. true launches through the Steam client via -applaunch, false always direct-launches), isolated_prefix (bool: give this game its own bottle, for titles whose winetricks/winver tweaks would disturb the shared bottle), notes. Per-user toggles (e.g. HUD on/off) live in the app's overrides.json and win over the DB.",
+  "_schema_fields": "Per game: title, engine, backend, verdict(works|needs-work|unsupported|untested), launch_exe (relative), winetricks[] (runtime verbs), env{} (extra env vars, e.g. {\"MTL_HUD_ENABLED\":\"1\"}), launch_args (string appended to the exe), hud (bool: default Metal perf HUD), anticheat (string: name the anti-cheat tech, e.g. \"Easy Anti-Cheat\"/\"BattlEye\"/\"kernel-level\"; presence shows a clear \"won't run online on Apple Silicon\" warning on the game page, since EAC/BattlEye have no macOS runtime; pair with verdict \"unsupported\"), drm (bool: force/disable the Steam-DRM launch path; when unset, play.sh auto-detects SteamStub. true launches through the Steam client via -applaunch, false always direct-launches), isolated_prefix (bool: give this game its own bottle, for titles whose winetricks/winver tweaks would disturb the shared bottle), notes. Per-user toggles (e.g. HUD on/off) live in the app's overrides.json and win over the DB.",
   "schema": 1,
   "defaults": {
     "backend": "d3dmetal",
@@ -8,6 +8,30 @@
     "hud": false
   },
   "games": {
+    "1172470": {
+      "title": "Apex Legends",
+      "engine": "Source (Direct3D 11, 64-bit)",
+      "backend": "d3dmetal",
+      "verdict": "unsupported",
+      "anticheat": "Easy Anti-Cheat",
+      "notes": "Online multiplayer requires Easy Anti-Cheat, which has no macOS runtime, so it cannot run on Apple Silicon. Not a graphics limitation; the anti-cheat blocks launch."
+    },
+    "252490": {
+      "title": "Rust",
+      "engine": "Unity (Direct3D 11, 64-bit)",
+      "backend": "d3dmetal",
+      "verdict": "unsupported",
+      "anticheat": "Easy Anti-Cheat",
+      "notes": "Requires Easy Anti-Cheat for all servers; EAC has no macOS runtime, so the game will not run on Apple Silicon."
+    },
+    "359550": {
+      "title": "Tom Clancy's Rainbow Six Siege",
+      "engine": "AnvilNext (Direct3D 11, 64-bit)",
+      "backend": "d3dmetal",
+      "verdict": "unsupported",
+      "anticheat": "BattlEye",
+      "notes": "Uses BattlEye anti-cheat, which has no macOS runtime, so it cannot run on Apple Silicon."
+    },
     "227300": {
       "title": "Euro Truck Simulator 2",
       "engine": "Prism3D (Direct3D 11 / OpenGL, 64-bit)",

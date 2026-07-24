@@ -16,6 +16,7 @@ struct GameDetailView: View {
     @ObservedObject private var art = CustomArtStore.shared
     @ObservedObject private var cloud = CloudSaveService.shared
     @ObservedObject private var cloudStore = CloudSaveStore.shared
+    @ObservedObject private var repair = RepairService.shared
 
     @State private var profile = "auto"
     @State private var hudOn = false
@@ -30,6 +31,7 @@ struct GameDetailView: View {
 
     private var compat: GameCompat { GameCompat.of(game) }
     private var note: String? { game.source == .steam ? CompatDB.shared.note(appid: game.launchID) : nil }
+    private var antiCheat: String? { game.source == .steam ? CompatDB.shared.anticheat(appid: game.launchID) : nil }
     private var components: [String] { game.source == .steam ? CompatDB.shared.winetricks(appid: game.launchID) : [] }
     private var canUninstall: Bool { (game.source == .epic || game.source == .gog) && game.installed }
     /// Compatibility profiles only drive the Steam launch path (play.sh).
@@ -43,6 +45,7 @@ struct GameDetailView: View {
                     actionRow
                     if showsProfiles { compatibilityCard }
                     else { simpleCompatCard }
+                    if let ac = antiCheat { antiCheatCard(ac) }
                     performanceCard
                     if game.source == .steam { advancedCard }
                     if game.source == .steam { componentsCard }
@@ -347,6 +350,18 @@ struct GameDetailView: View {
                 .buttonStyle(.plain).foregroundStyle(DS.accent).background(Capsule().fill(DS.accent.opacity(0.12)))
                 .help("Re-run every fix this game needs (system cleanup, runtimes). Use this if it won't launch")
             }
+            if RepairService.supported(game) {
+                let busy = repair.state(for: game.id) == .running
+                Button { repair.repair(game) } label: {
+                    Label(busy ? "Verifying & repairing…" : "Verify & repair",
+                          systemImage: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 12, weight: .semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
+                }
+                .buttonStyle(.plain).foregroundStyle(DS.accent)
+                .background(Capsule().fill(DS.accent.opacity(busy ? 0.05 : 0.12)))
+                .disabled(busy)
+                .help("Re-check this game's files and re-download anything missing or corrupt")
+            }
             if canUninstall {
                 Button { confirmUninstall = true } label: {
                     Label("Uninstall", systemImage: "trash")
@@ -373,6 +388,24 @@ struct GameDetailView: View {
             }
         }
         .padding(.top, 4)
+    }
+
+    /// A hard-limit warning for anti-cheat titles: EAC/BattlEye have no macOS
+    /// runtime, so nothing Uncork does can make them run. Red so it's not mistaken
+    /// for a fixable compatibility note.
+    private func antiCheatCard(_ name: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "exclamationmark.shield.fill").foregroundStyle(.red)
+                Text("Anti-cheat").font(.system(size: 14, weight: .semibold))
+            }
+            Text("This game uses \(name), which has no macOS version, so it can't run on Apple Silicon (online play won't start). This is a hard limit of the anti-cheat, not a graphics or Wine problem, so there's no fix from Uncork.")
+                .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: DS.Radius.tile).fill(Color.red.opacity(0.10)))
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.tile).strokeBorder(Color.red.opacity(0.25)))
     }
 
     /// Steam saves are handled by Steam Cloud in the client, not by Uncork.

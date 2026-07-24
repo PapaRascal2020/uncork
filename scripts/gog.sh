@@ -171,12 +171,15 @@ if [[ "${1:-}" == "launch" ]]; then
   printf '%s\0' "$@" | grep -qzE '^--wine-prefix$' || args+=(--wine-prefix "$BOTTLE")
   printf '%s\0' "$@" | grep -qzE '^--platform$|^--os$' || args+=(--platform windows)
 fi
-# download <id> → default to Windows into the shared GOG bottle's "GOG Games" dir.
-if [[ "${1:-}" == "download" ]]; then
+# download/repair/update <id> → default to Windows into the shared GOG bottle's
+# "GOG Games" dir. repair (a download alias in gogdl) REQUIRES --path, so it must
+# get the same base path the install used, or it errors.
+case "${1:-}" in download|repair|update)
   printf '%s\0' "$@" | grep -qzE '^--platform$|^--os$' || args+=(--platform windows)
   if ! printf '%s\0' "$@" | grep -qzE '^--path$'; then
     mkdir -p "$BOTTLE/drive_c/GOG Games"
     args+=(--path "$BOTTLE/drive_c/GOG Games")
   fi
-fi
+  ;;
+esac
 exec "${GOGDL[@]}" --auth-config-path "$AUTH" "${args[@]}"

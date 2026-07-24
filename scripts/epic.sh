@@ -104,7 +104,7 @@ esac
 # for the commands where it matters, unless the caller already set one.
 args=("$@")
 case "${1:-}" in
-  list-games|install|info|download|update)
+  list-games|install|info|download|update|repair|verify)
     if ! printf '%s\0' "$@" | grep -qzE '^--platform$|^-P$'; then
       args+=(--platform Windows)
     fi

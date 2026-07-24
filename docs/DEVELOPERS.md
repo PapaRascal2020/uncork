@@ -180,12 +180,28 @@ small green check; a not-installed tile is dimmed and carries a download "NOT
 INSTALLED" badge (and a live progress chip while downloading).
 
 **Organization** (`LibraryOrganizer`, persisted to `library-org.json`) adds
-favorites, hidden games, and custom collections, all keyed by game id. Right-click a
-tile to favorite it, hide it, or add it to a collection (create one inline);
-favorites show a star and hidden games a slash-eye in the tile. The filter menu adds
-**Favorites only**, **Show hidden** (hidden games are set aside otherwise), and a
-**Collection** picker. Empty collections are pruned automatically, so there's no
-separate delete step.
+favorites, hidden games, and custom collections, all keyed by game id. Each tile has
+a visible star toggle and a "⋯" menu (hide, collections, new collection); right-click
+does the same. The filter menu adds **Favorites only**, **Show hidden** (hidden games
+are set aside otherwise), and a **Collection** picker. Empty collections are pruned
+automatically, so there's no separate delete step.
+
+**Verify & repair** (`RepairService`): the game page runs `legendary repair` /
+`gogdl repair` (both re-run the installer in repair mode: re-check files, re-download
+what's bad) for Epic/GOG. Steam integrity checks stay in the Steam client. The
+service drains the child's pipe so a long repair can't block.
+
+**Install location** (`InstallLocationService` + `scripts/install-location.sh`, Epic/
+GOG): the store card's "Install location…" symlinks the store's install root
+(`drive_c/EpicGames`, `drive_c/GOG Games`) to a folder the user picks, moving any
+existing games first. Symlinking the parent means recorded per-game paths still
+resolve, so both existing and future installs live at the target. Steam libraries are
+the Steam client's job and aren't offered here.
+
+**Anti-cheat** is a data-driven expectation: a compat-DB `anticheat` field (the tech
+name, e.g. "Easy Anti-Cheat"/"BattlEye") shows a red hard-limit warning on the game
+page, since EAC/BattlEye have no macOS runtime and no Uncork fix exists. Pair it with
+`verdict: "unsupported"`.
 
 The game detail page is Steam-styled: a wide `library_hero` banner with the
 transparent game `logo` overlaid. For titles Uncork cannot pull art for (or to
