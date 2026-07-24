@@ -217,17 +217,28 @@ corrupts its signature), then re-signs and verifies.
 `UNCORK_SLIM=1 bash scripts/package-app.sh` omits the two big Wine engines
 (`wine-stable`, `wine-cef`, roughly 1.8 GB) from the bundle. They are then fetched
 on first use into the writable per-user engine dir by `scripts/ensure-wine-engine.sh`
-(`wine-stable` from the public Gcenx release; `wine-cef` from `WINE_CEF_URL`). The
+(`wine-stable` from `WINE_STABLE_ASSET_URL`; `wine-cef` from `WINE_CEF_URL`). The
 resolver in `lib.sh` prefers a bundled engine and falls back to the per-user dir, so
 the same code path works bundled or slim. The default build still bundles both.
+
+Our `wine-stable` is NOT the public Gcenx build: it has DXMT (DirectX->Metal) baked
+in (a ~20 MB `d3d11.dll` plus the `winemetal.dll` / `winemetal.so` Metal bridge),
+which is how DirectX 11 games render. The public Gcenx release ships only the tiny
+stock `wined3d` `d3d11` and no `winemetal`, so a slim build must fetch our hosted
+engine, not Gcenx, or every DirectX 11 game fails with a missing/failed D3D11 device.
+`ensure-wine-engine.sh` treats a per-user engine that lacks `winemetal.so` as stock
+and re-fetches ours over it, so an install broken by an earlier (Gcenx-fetching)
+slim build self-heals on the next launch once the asset is hosted.
 
 DXVK and the Epic/GOG clients are also fetched on demand by `scripts/ensure-cli.sh`
 (DXVK from the upstream release; `legendary` and `gogdl` installed with the system
 `python3`), so a bare source clone builds a fully working app without the build kit.
 
-The two on-demand assets (`wine-cef` and the Steam client snapshot) are hosted on
-GitHub releases; `scripts/upload-assets.sh [all|wine-cef|steam]` packages and uploads
-them (needs `gh` authenticated with write access to the repo).
+The on-demand assets (`wine-stable` with DXMT, `wine-cef`, and the Steam client
+snapshot) are hosted on GitHub releases;
+`scripts/upload-assets.sh [all|wine-stable|wine-cef|steam]` packages and uploads them
+(needs `gh` authenticated with write access to the repo). The `wine-stable` packer
+refuses to upload a tree that is not the DXMT engine, so it cannot reship the bug.
 
 ### Handing the build to another developer
 

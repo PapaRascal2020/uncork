@@ -2,6 +2,7 @@
 # upload-assets.sh - package + upload the two large runtime assets Uncork fetches
 # on demand, so slim builds and fresh Steam installs work end to end. Mirrors the
 # URLs already wired in the code:
+#   wine-stable -> WINE_STABLE_ASSET_URL  (lib.sh)            release tag: wine-stable
 #   wine-cef  -> WINE_CEF_URL            (lib.sh)            release tag: wine-cef
 #   steam     -> STEAM_CLIENT_SNAPSHOT_URL (setup-steam.sh)  release tag: steam-client
 #
@@ -9,9 +10,10 @@
 # (default PapaRascal2020/uncork). Install: `brew install gh` then `gh auth login`.
 #
 # Usage:
-#   scripts/upload-assets.sh all        # both assets
-#   scripts/upload-assets.sh wine-cef   # just wine-cef
-#   scripts/upload-assets.sh steam      # just the Steam client snapshot
+#   scripts/upload-assets.sh all          # all assets
+#   scripts/upload-assets.sh wine-stable  # just the DXMT wine-stable engine
+#   scripts/upload-assets.sh wine-cef     # just wine-cef
+#   scripts/upload-assets.sh steam        # just the Steam client snapshot
 #
 # Override the repo with UNCORK_REPO=owner/name.
 set -euo pipefail
@@ -35,6 +37,21 @@ publish() { # <tag> <title> <file>
   echo "    done: https://github.com/$REPO/releases/download/$tag/$(basename "$file")"
 }
 
+pack_wine_stable() {
+  local src="$ROOT/engine/wine-stable"
+  [[ -x "$src/bin/wine" ]] || { echo "!! engine/wine-stable/bin/wine not found." >&2; return 1; }
+  # Guard against reshipping the bug: our engine must carry DXMT (a ~20 MB d3d11.dll
+  # + the winemetal Metal bridge). A stock Gcenx tree has a ~450 KB d3d11 and no
+  # winemetal.so, and hosting that would leave every DirectX 11 game broken.
+  local d3d11="$src/lib/wine/x86_64-windows/d3d11.dll"
+  [[ -f "$src/lib/wine/x86_64-unix/winemetal.so" && -f "$d3d11" && "$(stat -f%z "$d3d11")" -gt 5000000 ]] \
+    || { echo "!! engine/wine-stable is not the DXMT engine (small d3d11 / no winemetal.so). Refusing to upload." >&2; return 1; }
+  local out="$STAGE/wine-stable.tar.gz"
+  echo "==> Packing wine-stable with DXMT (~400 MB, this takes a while)…"
+  tar -czf "$out" -C "$src" .          # wine tree (bin/lib/share) lands at the archive root
+  publish "wine-stable" "Uncork wine-stable (DXMT)" "$out"
+}
+
 pack_wine_cef() {
   local src="$ROOT/engine/wine-cef"
   [[ -x "$src/wswine.bundle/bin/wine" ]] || { echo "!! engine/wine-cef/wswine.bundle not found." >&2; return 1; }
@@ -56,9 +73,10 @@ pack_steam() {
 }
 
 case "$WHAT" in
+  wine-stable) pack_wine_stable ;;
   wine-cef) pack_wine_cef ;;
   steam)    pack_steam ;;
-  all)      pack_wine_cef; pack_steam ;;
-  *) echo "usage: upload-assets.sh [all|wine-cef|steam]" >&2; exit 2 ;;
+  all)      pack_wine_stable; pack_wine_cef; pack_steam ;;
+  *) echo "usage: upload-assets.sh [all|wine-stable|wine-cef|steam]" >&2; exit 2 ;;
 esac
 echo "==> Assets uploaded. Slim builds (UNCORK_SLIM=1) and fresh Steam installs will now fetch them."

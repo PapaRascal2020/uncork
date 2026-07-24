@@ -33,6 +33,14 @@ WINE_ARCHIVE_STRIP="${WINE_ARCHIVE_STRIP:-4}"
 # it to enable that download.
 WINE_CEF_URL="${WINE_CEF_URL:-https://github.com/PapaRascal2020/uncork/releases/download/wine-cef/wine-cef.tar.gz}"
 
+# Our wine-stable engine has DXMT (DirectX->Metal) baked in: a ~20 MB d3d11.dll plus
+# the winemetal.dll / winemetal.so Metal bridge. The PUBLIC Gcenx build (WINE_URL,
+# above) ships only the tiny stock wined3d d3d11 and NO winemetal, so a slim build
+# that fetched Gcenx cannot create a D3D11 device and every DirectX 11 game fails.
+# Slim builds must therefore fetch OUR engine from this release asset, not Gcenx.
+# Packaged (wine tree at the archive root) + uploaded by scripts/upload-assets.sh.
+WINE_STABLE_ASSET_URL="${WINE_STABLE_ASSET_URL:-https://github.com/PapaRascal2020/uncork/releases/download/wine-stable/wine-stable.tar.gz}"
+
 # Writable per-user data root (bottles + downloaded engines live here; the payload
 # engine dir is read-only in a shipped .app).
 UNCORK_DATA_DIR="${UNCORK_DATA:-$HOME/Library/Application Support/Uncork}"
@@ -174,7 +182,16 @@ require_rosetta() {
 
 require_wine() {
   # Fetch wine-stable on demand if it is not present (slim build / source clone).
-  [[ -x "$WINE_BIN" ]] || bash "$PROJECT_ROOT/scripts/ensure-wine-engine.sh" wine-stable >&2 || true
+  # Also self-heal a per-user engine that lacks DXMT: an older slim build fetched
+  # stock Gcenx (no winemetal = no working DirectX 11), so re-fetch OUR engine over
+  # it. Only ever refetch a DOWNLOADED engine (under the data dir), never the
+  # read-only bundled payload, which always ships DXMT.
+  local need=0
+  [[ -x "$WINE_BIN" ]] || need=1
+  if [[ "$WINE_HOME" == "$UNCORK_DATA_DIR"/* && ! -f "$WINE_HOME/lib/wine/x86_64-unix/winemetal.so" ]]; then
+    need=1
+  fi
+  [[ "$need" == 1 ]] && bash "$PROJECT_ROOT/scripts/ensure-wine-engine.sh" wine-stable >&2 || true
   [[ -x "$WINE_BIN" ]] || die "Wine not found at $WINE_BIN. Run scripts/01-create-bottle.sh (or set WINE_URL/WINE_HOME)."
 }
 
