@@ -232,3 +232,50 @@ bottle_locked() {
   rm -rf "$lock" 2>/dev/null || true   # stale -> clear it
   return 1
 }
+
+# --- Steam client lifecycle --------------------------------------------------
+# Single source of truth for "is the bottle's Steam client running". Matches
+# either slash direction: once Steam re-execs itself it reports a Windows-style
+# path (Steam\steam.exe) that a '/'-only pattern misses, so we'd wrongly conclude
+# it's down and start a SECOND client, which then fights the first over
+# steamwebhelper (the "second instance / half-loaded" symptom). '.' matches / or \.
+steam_is_up() { pgrep -f '[Ss]team.steam\.exe' >/dev/null 2>&1; }
+
+# Bring the bottle's Steam client up exactly once, however many callers race. The
+# app pre-warms Steam on open and a Play click starts it too; both can fire within
+# the same second. The dangerous gap is between "we started Steam" and "Steam is
+# visible to pgrep": a second caller checking in that gap sees nothing and starts
+# a duplicate. An atomic mkdir lock closes it: whoever creates the lock owns the
+# start and waits for Steam to appear; everyone else waits for that to finish. A
+# lock older than the start budget is treated as stale (its owner crashed) and
+# reclaimed. Returns 0 once Steam is up. Best-effort: never aborts a caller.
+steam_ensure_running() {
+  local steam_exe="$BOTTLE/drive_c/Program Files (x86)/Steam/steam.exe"
+  [[ -f "$steam_exe" ]] || return 1
+  steam_is_up && return 0
+
+  local lock="$BOTTLE/.uncork-steam-start.lock"
+  if [[ -d "$lock" ]]; then
+    local age; age=$(( $(date +%s) - $(stat -f %m "$lock" 2>/dev/null || echo 0) ))
+    (( age > 90 )) && rmdir "$lock" 2>/dev/null || true
+  fi
+
+  if mkdir "$lock" 2>/dev/null; then
+    # We own the start. Re-check under the lock (another owner may have won the
+    # race between our first check and taking the lock).
+    if ! steam_is_up; then
+      # Stop background auto-updates first (Wine + auto-update hangs shutdown);
+      # it self-skips if Steam is already up. Then start hidden with software CEF
+      # rendering (-cef-disable-gpu): the GPU compositor crash-loops steamwebhelper
+      # under Wine and takes steam.exe down with it.
+      STEAM_BOTTLE="$BOTTLE" bash "$(dirname "${BASH_SOURCE[0]}")/steam-tame.sh" >/dev/null 2>&1 || true
+      wine_run "$steam_exe" -silent -no-browser -cef-disable-gpu >/dev/null 2>&1 &
+    fi
+    for _ in $(seq 1 30); do steam_is_up && break; sleep 1; done
+    rmdir "$lock" 2>/dev/null || true
+  else
+    # Someone else owns the start; wait (bounded) for Steam to come up.
+    for _ in $(seq 1 60); do steam_is_up && break; sleep 1; done
+  fi
+  steam_is_up
+}

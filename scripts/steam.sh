@@ -10,6 +10,15 @@
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 require_wine
+
+# Pre-warm: bring Steam up hidden through the shared, lock-serialized starter so
+# it can never race a Play click into a second client. Best-effort and silent;
+# the app calls this on open. Does nothing if Steam isn't installed yet.
+if [[ "${1:-}" == "--prewarm" ]]; then
+  steam_ensure_running || true
+  exit 0
+fi
+
 STEAM_EXE="$BOTTLE/drive_c/Program Files (x86)/Steam/steam.exe"
 [[ -f "$STEAM_EXE" ]] || die "Steam not installed in the bottle. Run scripts/03-install-steam.sh first."
 

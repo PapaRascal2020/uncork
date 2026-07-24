@@ -213,16 +213,11 @@ steam_logged_in() {
   [[ "$last" == *"Logged On"* ]]
 }
 
-# Match either slash direction: after bootstrap, Steam's persistent process can
-# show a Windows-style path (Steam\steam.exe), which a '/'-only pattern misses,
-# making us start a SECOND Steam (steamwebhelper conflict). '.' matches / or \.
-if ! pgrep -f '[Ss]team.steam\.exe' >/dev/null 2>&1; then
-  status "Starting Steam…"
-  log "Starting Steam (hidden)…"
-  # -cef-disable-gpu: software CEF rendering, avoids the steamwebhelper GPU crash
-  # under Wine that also takes down steam.exe (see steam.sh).
-  wine_run "$STEAM_EXE" -silent -no-browser -cef-disable-gpu >/dev/null 2>&1 &
-fi
+# Bring Steam up through the shared, lock-serialized starter so a Play click can
+# never race the app's pre-warm into a SECOND client (steamwebhelper conflict).
+# If Steam is already up (pre-warmed) this returns immediately.
+if ! steam_is_up; then status "Starting Steam…"; log "Starting Steam (hidden)…"; fi
+steam_ensure_running || warn "Steam client did not come up; trying to launch anyway."
 
 # ALWAYS wait for sign-in before launching, whether we just started Steam or it
 # was pre-warmed. Firing -applaunch before 'Logged On' makes Steam silently DROP

@@ -21,7 +21,10 @@ enum SteamService {
 
             let p = Process()
             p.executableURL = URL(fileURLWithPath: "/bin/bash")
-            p.arguments = ["\(Paths.scripts)/steam.sh", "-silent", "-no-browser"]
+            // --prewarm goes through the shared lock-serialized starter, so this
+            // and a Play click can't both start Steam (which collide as a second
+            // client / steamwebhelper challenge).
+            p.arguments = ["\(Paths.scripts)/steam.sh", "--prewarm"]
             p.environment = Paths.scriptEnvironment(["BOTTLE_NAME": "steam"])
             // Detach output so Steam's chatty logging can't fill a pipe and stall it.
             p.standardOutput = FileHandle.nullDevice
