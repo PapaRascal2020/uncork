@@ -107,9 +107,15 @@ with no app rebuild. Loaded by `StoreTemplates` (app) and `setup-template.sh`
 overrides a shipped template with the same id.
 
 A template has an `id`, `name`, `platform`, art, a reproducible `recipe`
-(engine + winver + winetricks + dll_overrides + launch_flags + env), and, for
-installable ones, an `installer` (url, optional `wait_for_exe`) plus
-`launch_path` / `detect_path`.
+(engine + winver + winetricks + dll_overrides + launch_flags + env), an optional
+`store_url`, and, for installable ones, an `installer` (url, optional
+`wait_for_exe`) plus `launch_path` / `detect_path`.
+
+Set `store_url` to a store's web storefront (buy/claim page) to let users browse
+it inside Uncork: once the store is installed, a row for it appears under the
+sidebar's "Browse" section and opens the page in an embedded, persistent-login
+web view. Steam, Epic and GOG ship with one. Custom stores get the same field in
+the Add-a-Store sheet, so a user's own launcher can have a store page too.
 
 Two axes:
 
