@@ -1,4 +1,4 @@
-# Uncork
+# <img src="docs/icon.png" alt="Uncork" height="36" align="top"> Uncork
 
 **Play Windows games on your Apple Silicon Mac, without the tinkering.**
 
