@@ -175,6 +175,18 @@ with **Mac | Windows | All** platform tabs and a per-tile platform badge. Add a
 game directly: **Add Windows Game** (an `.exe` via Wine) or **Add Mac Game** (a
 native `.app`).
 
+**Install state** reads at a glance: an installed tile shows full-colour art with a
+small green check; a not-installed tile is dimmed and carries a download "NOT
+INSTALLED" badge (and a live progress chip while downloading).
+
+**Organization** (`LibraryOrganizer`, persisted to `library-org.json`) adds
+favorites, hidden games, and custom collections, all keyed by game id. Right-click a
+tile to favorite it, hide it, or add it to a collection (create one inline);
+favorites show a star and hidden games a slash-eye in the tile. The filter menu adds
+**Favorites only**, **Show hidden** (hidden games are set aside otherwise), and a
+**Collection** picker. Empty collections are pruned automatically, so there's no
+separate delete step.
+
 The game detail page is Steam-styled: a wide `library_hero` banner with the
 transparent game `logo` overlaid. For titles Uncork cannot pull art for (or to
 override what it did), **custom artwork** (`CustomArtStore`) lets the user set a

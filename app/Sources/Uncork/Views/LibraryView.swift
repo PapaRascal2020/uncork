@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 struct LibraryView: View {
     @ObservedObject private var lib = LibraryStore.shared
     @ObservedObject private var dl = DownloadManager.shared
+    @ObservedObject private var org = LibraryOrganizer.shared
     private let columns = [GridItem(.adaptive(minimum: 250, maximum: 320), spacing: 18)]
 
     // Filters
@@ -15,6 +16,15 @@ struct LibraryView: View {
     @State private var status: StatusFilter = .all
     @State private var compat: CompatFilter = .all
     @State private var platform: PlatformFilter = .all
+    // Organization filters
+    @State private var favoritesOnly = false
+    @State private var showHidden = false
+    @State private var collection: String? = nil   // nil = all collections
+
+    // New-collection prompt (raised from a game's context menu)
+    @State private var showNewCollection = false
+    @State private var newCollectionName = ""
+    @State private var newCollectionTarget: InstalledGame?
 
     // Add-a-game (custom .exe / native .app) flow
     @State private var addExe: String?
@@ -26,9 +36,16 @@ struct LibraryView: View {
         lib.games.filter { g in
             (query.isEmpty || g.title.localizedCaseInsensitiveContains(query))
             && store.matches(g) && status.matches(g) && compat.matches(g) && platform.matches(g)
+            // Hidden games are set aside unless "Show hidden" is on.
+            && (showHidden || !org.isHidden(g.id))
+            && (!favoritesOnly || org.isFavorite(g.id))
+            && (collection == nil || org.inCollection(g.id, collection!))
         }
     }
-    private var filtersActive: Bool { store != .all || status != .all || compat != .all || platform != .all }
+    private var filtersActive: Bool {
+        store != .all || status != .all || compat != .all || platform != .all
+            || favoritesOnly || showHidden || collection != nil
+    }
     /// The Mac|Windows tab is only useful once you own a title with a native Mac
     /// build (GOG flags these). Hidden otherwise so Windows-only libraries stay clean.
     private var hasMacGames: Bool { lib.games.contains { $0.hasMac } }
@@ -42,44 +59,102 @@ struct LibraryView: View {
             ? "\(showing) of \(total) \(word)"
             : "\(total) \(word)"
     }
-    private func clearFilters() { store = .all; status = .all; compat = .all; platform = .all; query = "" }
+    private func clearFilters() {
+        store = .all; status = .all; compat = .all; platform = .all; query = ""
+        favoritesOnly = false; showHidden = false; collection = nil
+    }
+
+    /// The library filter menu (store / show / compatibility / organization).
+    @ViewBuilder private var filterMenu: some View {
+        Picker("Store", selection: $store) {
+            ForEach(StoreFilter.allCases) { Text($0.rawValue).tag($0) }
+        }.pickerStyle(.inline)
+        Picker("Show", selection: $status) {
+            ForEach(StatusFilter.allCases) { Text($0.rawValue).tag($0) }
+        }.pickerStyle(.inline)
+        Picker("Compatibility", selection: $compat) {
+            ForEach(CompatFilter.allCases) { Text($0.rawValue).tag($0) }
+        }.pickerStyle(.inline)
+        Divider()
+        Toggle("Favorites only", isOn: $favoritesOnly)
+        Toggle("Show hidden", isOn: $showHidden)
+        if !org.collectionNames.isEmpty {
+            Picker("Collection", selection: $collection) {
+                Text("All collections").tag(String?.none)
+                ForEach(org.collectionNames, id: \.self) { Text($0).tag(Optional($0)) }
+            }
+        }
+        if filtersActive { Divider(); Button("Clear Filters", action: clearFilters) }
+    }
+
+    /// Right-click actions on a Library tile: favorite, hide, and collections.
+    @ViewBuilder private func gameContextMenu(_ g: InstalledGame) -> some View {
+        Button {
+            org.toggleFavorite(g.id)
+        } label: {
+            Label(org.isFavorite(g.id) ? "Remove from Favorites" : "Add to Favorites",
+                  systemImage: org.isFavorite(g.id) ? "star.slash" : "star")
+        }
+        Button {
+            org.setHidden(g.id, !org.isHidden(g.id))
+        } label: {
+            Label(org.isHidden(g.id) ? "Unhide" : "Hide game",
+                  systemImage: org.isHidden(g.id) ? "eye" : "eye.slash")
+        }
+        Menu {
+            ForEach(org.collectionNames, id: \.self) { c in
+                Button { org.toggleCollection(g.id, c) } label: {
+                    Label(c, systemImage: org.inCollection(g.id, c) ? "checkmark" : "circle")
+                }
+            }
+            if !org.collectionNames.isEmpty { Divider() }
+            Button { newCollectionTarget = g; newCollectionName = ""; showNewCollection = true } label: {
+                Label("New Collection…", systemImage: "plus")
+            }
+        } label: { Label("Collections", systemImage: "folder") }
+    }
+
+    /// The scrolling body: platform tab, empty states, and the game grid. Kept as
+    /// its own view so the `body` below stays small enough to type-check quickly.
+    @ViewBuilder private var scrollContent: some View {
+        // Mac | Windows | All tab: always shown so you can filter by platform.
+        if !lib.games.isEmpty {
+            Picker("", selection: $platform) {
+                ForEach(PlatformFilter.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden()
+            .padding(.horizontal, DS.Space.gutter).padding(.top, DS.Space.gutter)
+        }
+        if lib.games.isEmpty {
+            ContentUnavailableView(
+                "Nothing here yet",
+                systemImage: "tray",
+                description: Text("Connect a store on the Stores tab. Owned games show here: install then play, all in one place."))
+                .padding(.top, 90)
+        } else if filtered.isEmpty {
+            ContentUnavailableView {
+                Label("No games match", systemImage: "line.3.horizontal.decrease.circle")
+            } description: {
+                Text("Try a different search or clear the filters.")
+            } actions: {
+                Button("Clear Filters", action: clearFilters)
+            }
+            .padding(.top, 90)
+        } else {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 20) {
+                ForEach(filtered) { g in
+                    NavigationLink(value: g) { InstalledGameCard(game: g) }
+                        .buttonStyle(.plain)
+                        .contextMenu { gameContextMenu(g) }
+                }
+            }
+            .padding(DS.Space.gutter)
+        }
+    }
 
     var body: some View {
       NavigationStack {
-        ScrollView {
-            // Mac | Windows | All tab: always shown so you can filter by platform.
-            if !lib.games.isEmpty {
-                Picker("", selection: $platform) {
-                    ForEach(PlatformFilter.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented).labelsHidden()
-                .padding(.horizontal, DS.Space.gutter).padding(.top, DS.Space.gutter)
-            }
-            if lib.games.isEmpty {
-                ContentUnavailableView(
-                    "Nothing here yet",
-                    systemImage: "tray",
-                    description: Text("Connect a store on the Stores tab. Owned games show here: install then play, all in one place."))
-                    .padding(.top, 90)
-            } else if filtered.isEmpty {
-                ContentUnavailableView {
-                    Label("No games match", systemImage: "line.3.horizontal.decrease.circle")
-                } description: {
-                    Text("Try a different search or clear the filters.")
-                } actions: {
-                    Button("Clear Filters", action: clearFilters)
-                }
-                .padding(.top, 90)
-            } else {
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 20) {
-                    ForEach(filtered) { g in
-                        NavigationLink(value: g) { InstalledGameCard(game: g) }
-                            .buttonStyle(.plain)
-                    }
-                }
-                .padding(DS.Space.gutter)
-            }
-        }
+        ScrollView { scrollContent }
         .overlay(alignment: .top) {
             if lib.loading {
                 HStack(spacing: 8) {
@@ -109,18 +184,7 @@ struct LibraryView: View {
                 .accessibilityLabel("Add a game")
             }
             ToolbarItem {
-                Menu {
-                    Picker("Store", selection: $store) {
-                        ForEach(StoreFilter.allCases) { Text($0.rawValue).tag($0) }
-                    }.pickerStyle(.inline)
-                    Picker("Show", selection: $status) {
-                        ForEach(StatusFilter.allCases) { Text($0.rawValue).tag($0) }
-                    }.pickerStyle(.inline)
-                    Picker("Compatibility", selection: $compat) {
-                        ForEach(CompatFilter.allCases) { Text($0.rawValue).tag($0) }
-                    }.pickerStyle(.inline)
-                    if filtersActive { Divider(); Button("Clear Filters", action: clearFilters) }
-                } label: {
+                Menu { filterMenu } label: {
                     Image(systemName: filtersActive ? "line.3.horizontal.decrease.circle.fill"
                                                      : "line.3.horizontal.decrease.circle")
                 }
@@ -132,6 +196,16 @@ struct LibraryView: View {
             }
         }
         .navigationDestination(for: InstalledGame.self) { GameDetailView(game: $0) }
+        .alert("New Collection", isPresented: $showNewCollection) {
+            TextField("Collection name", text: $newCollectionName)
+            Button("Create") {
+                if let g = newCollectionTarget { org.addToCollection(g.id, newCollectionName) }
+                newCollectionTarget = nil; newCollectionName = ""
+            }
+            Button("Cancel", role: .cancel) { newCollectionTarget = nil; newCollectionName = "" }
+        } message: {
+            Text("Group games together. This adds the selected game to a new collection.")
+        }
         .sheet(isPresented: Binding(get: { addExe != nil }, set: { if !$0 { addExe = nil } })) {
             AddGameSheet(exePath: addExe ?? "", platform: addPlatform, title: $addTitle, isolated: $addIsolated,
                 onAdd: {
@@ -300,6 +374,7 @@ struct InstalledGameCard: View {
     @ObservedObject private var run = RunStore.shared
     @ObservedObject private var dl = DownloadManager.shared
     @ObservedObject private var art = CustomArtStore.shared
+    @ObservedObject private var org = LibraryOrganizer.shared
     @State private var hovering = false
 
     private var installing: DownloadManager.Item? {
@@ -347,11 +422,22 @@ struct InstalledGameCard: View {
                     }
                 }
 
-            Text(game.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+            HStack(spacing: 5) {
+                if org.isFavorite(game.id) {
+                    Image(systemName: "star.fill").font(.system(size: 10)).foregroundStyle(.yellow)
+                        .help("Favorite")
+                }
+                Text(game.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                if org.isHidden(game.id) {
+                    Image(systemName: "eye.slash.fill").font(.system(size: 9)).foregroundStyle(.secondary)
+                        .help("Hidden")
+                }
+            }
             CompatIndicator(game: game)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())   // whole tile is the tap target
+        .opacity(org.isHidden(game.id) ? 0.6 : 1)   // hidden games read as set-aside when shown
         // Subtle Steam-style lift on hover.
         .scaleEffect(hovering ? 1.035 : 1)
         .shadow(color: .black.opacity(hovering ? 0.35 : 0), radius: hovering ? 12 : 0, y: hovering ? 6 : 0)
@@ -371,7 +457,9 @@ struct InstalledGameCard: View {
             .help(game.hasMac ? "Native macOS build" : "Windows game (runs via Wine)")
     }
 
-    /// Bottom-left chip on the art: install progress, or a "Not installed" hint.
+    /// Bottom-left chip on the art. Installing: live progress. Not installed:
+    /// dimmed art (above) + a clear download badge. Installed: a small green check
+    /// so a downloaded game reads at a glance without a heavy label.
     @ViewBuilder private var statusChip: some View {
         if let it = installing {
             HStack(spacing: 5) {
@@ -381,11 +469,20 @@ struct InstalledGameCard: View {
             .padding(.vertical, 4).padding(.horizontal, 8)
             .background(Capsule().fill(.black.opacity(0.6))).padding(10)
         } else if !game.installed {
-            Text("NOT INSTALLED")
-                .font(.system(size: 9, weight: .heavy)).tracking(0.5)
-                .padding(.vertical, 3).padding(.horizontal, 7)
-                .background(Capsule().fill(.black.opacity(0.55)))
-                .foregroundStyle(.white.opacity(0.85)).padding(10)
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.down.circle").font(.system(size: 9, weight: .heavy))
+                Text("NOT INSTALLED").font(.system(size: 9, weight: .heavy)).tracking(0.5)
+            }
+            .padding(.vertical, 3).padding(.horizontal, 7)
+            .background(Capsule().fill(.black.opacity(0.6)))
+            .foregroundStyle(.white.opacity(0.9)).padding(10)
+        } else {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 14))
+                .foregroundStyle(.green)
+                .background(Circle().fill(.black.opacity(0.45)).padding(1))
+                .padding(10)
+                .help("Installed")
         }
     }
 }
