@@ -62,6 +62,11 @@ final class ComponentInstaller: ObservableObject {
                     if !label.isEmpty { stepMsg = pct.map { "\(label) \($0)%" } ?? label }
                     continue
                 }
+                if let r = line.range(of: "@@STATUS@@ ") {   // status text, no percentage
+                    let m = String(line[r.upperBound...]).trimmingCharacters(in: .whitespaces)
+                    if !m.isEmpty { stepMsg = m }
+                    continue
+                }
                 if isDotnet { continue }
                 let t = line.trimmingCharacters(in: .whitespaces).lowercased()
                 if t.isEmpty || t.hasPrefix("---") || winvers.contains(t) { continue }
