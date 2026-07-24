@@ -45,6 +45,9 @@ struct StoreTemplate: Codable, Hashable, Identifiable {
     var art: [Double] = [0.16, 0.16, 0.20]        // start rgb
     var artEnd: [Double] = [0.05, 0.05, 0.07]     // end rgb
     var auth: Bool = false
+    /// Optional web storefront (buy/claim page) to browse inside Uncork. When set
+    /// and the store is installed, it gets a row under the sidebar's "Browse".
+    var storeURL: String = ""
     var recipe: StoreRecipe = StoreRecipe()
     // generic install/launch:
     var installerURL: String = ""
@@ -71,6 +74,7 @@ struct StoreTemplate: Codable, Hashable, Identifiable {
             "symbol": symbol, "tagline": tagline, "runsVia": runsVia, "setupNote": setupNote,
             "auth": auth, "art": ["start": art, "end": artEnd], "recipe": recipeD,
         ]
+        if !storeURL.isEmpty { d["store_url"] = storeURL }
         if !installerURL.isEmpty {
             var inst: [String: Any] = ["url": installerURL]
             if !installerWaitForExe.isEmpty { inst["wait_for_exe"] = installerWaitForExe }
@@ -153,6 +157,7 @@ final class StoreTemplates {
             t.artEnd = (a["end"] as? [Double]) ?? t.artEnd
         }
         t.auth = (d["auth"] as? Bool) ?? false
+        t.storeURL = (d["store_url"] as? String) ?? ""
         if let r = d["recipe"] as? [String: Any] { t.recipe = StoreRecipe(from: r) }
         if let inst = d["installer"] as? [String: Any] {
             t.installerURL = (inst["url"] as? String) ?? ""

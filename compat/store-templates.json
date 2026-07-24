@@ -1,6 +1,6 @@
 {
   "_comment": "Uncork store templates: the data-driven, extensible definition of every storefront Uncork can set up. Steam/Epic/GOG ship here as templates; developers add a new store with an entry (no app rebuild), and users create custom stores plus Save-as-Template exports in the same schema. A template is a store's metadata plus a reproducible bottle recipe (Wine engine/version, OS/winver, winetricks, dll overrides, launch flags/env) so 'Run Template' rebuilds a bottle as its author configured it. Loaded by app StoreTemplates.swift; user/dev additions also read from <UNCORK_DATA>/templates/*.json.",
-  "_schema": "templates.<id>: { name, kind(steam|epic|gog|generic), platform(windows|mac), symbol, tagline, runsVia, setupNote, art{start,end (r,g,b 0..1)}, auth(bool), recipe{ engine, winver, winetricks[], dll_overrides{}, launch_flags[], env{} }, installer{ url?, file?, silent_args? }(generic only), launch_path?, detect_path? }",
+  "_schema": "templates.<id>: { name, kind(steam|epic|gog|generic), platform(windows|mac), symbol, tagline, runsVia, setupNote, art{start,end (r,g,b 0..1)}, auth(bool), store_url?(web storefront to browse/buy in-app), recipe{ engine, winver, winetricks[], dll_overrides{}, launch_flags[], env{} }, installer{ url?, file?, silent_args? }(generic only), launch_path?, detect_path? }",
   "_kinds": "steam/epic/gog = built-in, keep their bespoke sign-in UI + setup-<kind>.sh. generic = a developer/user store: installed via its installer into a bottle (Windows) or a native .app (mac), launched + detected + Library-scanned generically.",
   "schema": 1,
   "templates": {
@@ -10,6 +10,7 @@
       "tagline": "Valve's store, the biggest PC library.",
       "runsVia": "Windows Steam client in a Wine bottle (auto-login cached)",
       "setupNote": "Ready. Sign in once with a QR or password; stays signed in.",
+      "store_url": "https://store.steampowered.com/",
       "art": { "start": [0.10, 0.16, 0.24], "end": [0.04, 0.07, 0.12] },
       "recipe": { "engine": "wine-stable", "winver": "win10", "winetricks": ["corefonts"], "dll_overrides": {}, "launch_flags": ["-cef-disable-gpu"], "env": {} }
     },
@@ -19,6 +20,7 @@
       "tagline": "Fortnite, free weekly games, Unreal titles.",
       "runsVia": "Legendary (lightweight CLI Epic client), no heavy launcher UI",
       "setupNote": "Installs a CLI Epic client and lists your library in-app; sign in via browser code.",
+      "store_url": "https://store.epicgames.com/",
       "art": { "start": [0.16, 0.16, 0.18], "end": [0.05, 0.05, 0.06] },
       "recipe": { "engine": "wine-stable", "winver": "win10", "winetricks": [], "dll_overrides": {}, "launch_flags": [], "env": {} }
     },
@@ -28,6 +30,7 @@
       "tagline": "DRM-free classics and modern games.",
       "runsVia": "Direct installers / Heroic-style, no launcher needed",
       "setupNote": "DRM-free, so games can be installed directly without a running client.",
+      "store_url": "https://www.gog.com/en/games",
       "art": { "start": [0.28, 0.14, 0.30], "end": [0.11, 0.05, 0.12] },
       "recipe": { "engine": "wine-stable", "winver": "win10", "winetricks": [], "dll_overrides": {}, "launch_flags": [], "env": {} }
     },

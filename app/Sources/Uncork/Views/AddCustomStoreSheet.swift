@@ -15,6 +15,7 @@ struct AddCustomStoreSheet: View {
     @State private var platform = "windows"      // "windows" | "mac"
     @State private var filePath = ""             // Windows: installer. Mac: the .app.
     @State private var gamesDir = ""
+    @State private var storeURL = ""             // optional web storefront to browse in-app
     @State private var engine = "wine-stable"    // chosen Wine version (Windows only)
     @State private var winver = ""               // OS / Windows version (Windows only)
     @State private var flags = ""                // extra launch flags (Windows only)
@@ -108,6 +109,13 @@ struct AddCustomStoreSheet: View {
                     .font(.system(size: 10)).foregroundStyle(.secondary)
             }
 
+            field("Store page (optional)") {
+                TextField("e.g. store.epicgames.com", text: $storeURL)
+                    .textFieldStyle(.roundedBorder).font(.system(size: 12))
+                Text("If this store has a web storefront where you buy or claim games, add it here to browse it inside Uncork (a \"Browse\" entry appears in the sidebar). Leave blank if it has no web store.")
+                    .font(.system(size: 10)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+
             if busy {
                 ProgressView(value: installer.fraction).progressViewStyle(.linear).tint(DS.accent)
                 Text(installer.message.isEmpty ? "Installing…" : installer.message).font(.system(size: 11)).foregroundStyle(.secondary)
@@ -157,7 +165,8 @@ struct AddCustomStoreSheet: View {
                 Button {
                     _ = CustomStoresStore.shared.add(name: name, platform: "windows", launchPath: launcherExe,
                                                      bottle: installedBottle, gamesDir: gamesDir,
-                                                     engine: engine, winver: winver, launchFlags: flags)
+                                                     engine: engine, winver: winver, launchFlags: flags,
+                                                     storeURL: storeURL)
                     finish()
                 } label: {
                     Text("Add to Uncork").font(.system(size: 13, weight: .bold)).padding(.vertical, 6).padding(.horizontal, 16)
@@ -219,7 +228,7 @@ struct AddCustomStoreSheet: View {
         if isMac {
             // Native app → straight shortcut, no install, no Wine.
             _ = CustomStoresStore.shared.add(name: name, platform: "mac", launchPath: filePath,
-                                             bottle: nil, gamesDir: gamesDir)
+                                             bottle: nil, gamesDir: gamesDir, storeURL: storeURL)
             finish()
         } else {
             // Windows → install the client into its own bottle on the CHOSEN Wine

@@ -4,7 +4,6 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     case stores    = "Stores"
     case library   = "Library"
     case downloads = "Downloads"
-    case epicStore = "Epic Store"
     case wine      = "Wine Downloader"
     case setup     = "Setup"
     case userGuide  = "User Guide"
@@ -17,7 +16,6 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .stores:    return "square.grid.2x2.fill"
         case .library:   return "square.stack.fill"
         case .downloads: return "arrow.down.circle.fill"
-        case .epicStore: return "bag.fill"
         case .wine:      return "wineglass.fill"
         case .setup:     return "wrench.and.screwdriver.fill"
         case .userGuide:  return "book.fill"
@@ -27,20 +25,60 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     }
 }
 
+/// Sidebar selection: a fixed section item, or a store's "Browse" web page.
+enum Nav: Hashable {
+    case item(SidebarItem)
+    case browse(String)   // store id: a template id (steam/epic/gog/…) or "custom-store:<id>"
+}
+
+/// A store with a web storefront to browse in-app (Steam/Epic/GOG or a custom store).
+struct BrowseEntry: Identifiable, Hashable {
+    let id: String        // matches Nav.browse(id)
+    let name: String
+    let symbol: String
+    let url: URL
+}
+
 struct ContentView: View {
-    @State private var selection: SidebarItem? = .stores
+    @State private var selection: Nav? = .item(.stores)
     @AppStorage("uncork.hasSeenWelcome") private var seenWelcome = false
     @State private var showWelcome = false
     @ObservedObject private var registry = StoreRegistry.shared
     @ObservedObject private var storeStatus = StoreStatus.shared
+    @ObservedObject private var customStores = CustomStoresStore.shared
+
+    /// Installed stores that expose a web storefront (a built-in template with a
+    /// store_url, or a custom store the user gave a store page). These become the
+    /// sidebar's "Browse" rows.
+    private var browseEntries: [BrowseEntry] {
+        var out: [BrowseEntry] = []
+        for l in registry.installed {
+            if let t = StoreTemplates.shared.template(l.id), let u = Self.normalizedURL(t.storeURL) {
+                out.append(BrowseEntry(id: l.id, name: t.name, symbol: t.symbol, url: u))
+            }
+        }
+        for e in customStores.entries {
+            if let s = e.storeURL, let u = Self.normalizedURL(s) {
+                out.append(BrowseEntry(id: "custom-store:\(e.id)", name: e.name, symbol: e.symbol, url: u))
+            }
+        }
+        return out
+    }
+
+    /// Accept a bare host ("gog.com") as well as a full URL.
+    static func normalizedURL(_ s: String) -> URL? {
+        let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return nil }
+        return URL(string: t.contains("://") ? t : "https://\(t)")
+    }
 
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
                 Section { row(.stores); row(.library); row(.downloads) }
-                // The Epic store browser only makes sense once Epic is set up.
-                if registry.isInstalled("epic") {
-                    Section("Browse") { row(.epicStore) }
+                // A store's web storefront, shown once that store is set up.
+                if !browseEntries.isEmpty {
+                    Section("Browse") { ForEach(browseEntries) { browseRow($0) } }
                 }
                 Section { row(.wine); row(.userGuide); row(.developers); row(.setup); row(.about) }
             }
@@ -60,16 +98,26 @@ struct ContentView: View {
             .safeAreaInset(edge: .bottom) { signInFooter }
         } detail: {
             Group {
-                switch selection ?? .stores {
-                case .stores:    StoresView()
-                case .library:   LibraryView()
-                case .downloads: DownloadsView()
-                case .epicStore: EpicStoreView()
-                case .wine:      WineManagerView()
-                case .setup:     SetupView()
-                case .userGuide:  UserGuideView()
-                case .developers: DeveloperGuideView()
-                case .about:     AboutView()
+                switch selection ?? .item(.stores) {
+                case .item(let it):
+                    switch it {
+                    case .stores:    StoresView()
+                    case .library:   LibraryView()
+                    case .downloads: DownloadsView()
+                    case .wine:      WineManagerView()
+                    case .setup:     SetupView()
+                    case .userGuide:  UserGuideView()
+                    case .developers: DeveloperGuideView()
+                    case .about:     AboutView()
+                    }
+                case .browse(let id):
+                    // Fresh session per store (.id) so switching stores never reuses
+                    // the previous store's page. Falls back if the store was removed.
+                    if let b = browseEntries.first(where: { $0.id == id }) {
+                        StoreBrowserView(name: b.name, url: b.url).id(b.id)
+                    } else {
+                        StoresView()
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -85,7 +133,11 @@ struct ContentView: View {
     }
 
     private func row(_ item: SidebarItem) -> some View {
-        Label(item.rawValue, systemImage: item.symbol).tag(item)
+        Label(item.rawValue, systemImage: item.symbol).tag(Nav.item(item))
+    }
+
+    private func browseRow(_ b: BrowseEntry) -> some View {
+        Label(b.name, systemImage: b.symbol).tag(Nav.browse(b.id))
     }
 
     /// Bottom-left store sign-in status: shown only for stores that are

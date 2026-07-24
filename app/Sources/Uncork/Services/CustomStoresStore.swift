@@ -23,6 +23,7 @@ final class CustomStoresStore: ObservableObject {
         var engine: String?       // Windows: chosen Wine engine/version (UNCORK_ENGINE); nil = default
         var winver: String?       // Windows version the bottle reports (win10/win7/…)
         var launchFlags: String?  // extra launch args
+        var storeURL: String?     // optional web storefront to browse in-app (Browse sidebar)
         var isMac: Bool { platform == "mac" }
     }
 
@@ -89,7 +90,8 @@ final class CustomStoresStore: ObservableObject {
 
     @discardableResult
     func add(name: String, platform: String, launchPath: String, bottle: String?, gamesDir: String?,
-             engine: String? = nil, winver: String? = nil, launchFlags: String? = nil) -> Entry {
+             engine: String? = nil, winver: String? = nil, launchFlags: String? = nil,
+             storeURL: String? = nil) -> Entry {
         let id = String(UUID().uuidString.prefix(8)).lowercased()
         let e = Entry(id: id, name: name.trimmingCharacters(in: .whitespacesAndNewlines),
                       platform: platform == "mac" ? "mac" : "windows",
@@ -98,7 +100,8 @@ final class CustomStoresStore: ObservableObject {
                       gamesDir: (gamesDir?.isEmpty ?? true) ? nil : gamesDir,
                       engine: (engine?.isEmpty ?? true) ? nil : engine,
                       winver: (winver?.isEmpty ?? true) ? nil : winver,
-                      launchFlags: (launchFlags?.isEmpty ?? true) ? nil : launchFlags)
+                      launchFlags: (launchFlags?.isEmpty ?? true) ? nil : launchFlags,
+                      storeURL: (storeURL?.isEmpty ?? true) ? nil : storeURL)
         entries.append(e); save()
         return e
     }
