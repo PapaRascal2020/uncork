@@ -5,8 +5,9 @@
 #
 #   .NET installs spin forever in ngen/mscorsvw on Wine. The runtime FILES land
 #   fine, but the optional native-image precompile never finishes and pegs a CPU
-#   at 100%. So we watchdog mscorsvw and kill it once it's clearly stuck, then
-#   reset the Windows version back to win10 (winetricks knocks it down to XP/7).
+#   at 100%. ngen is only a startup optimization (.NET JITs without it), so we
+#   reap mscorsvw/ngen the moment it appears rather than wait, then reset the
+#   Windows version back to win10 (winetricks knocks it down to XP/7).
 #
 # Usage:  ./scripts/install-runtime.sh <winetricks-verb> [more verbs...]
 #   e.g.  ./scripts/install-runtime.sh dotnet40
@@ -53,34 +54,27 @@ export PATH="$(dirname "$WINETRICKS"):$(dirname "${CABEXTRACT:-$WINETRICKS}"):$P
 export WINE="$WINE_BIN" WINESERVER="$WINE_HOME/bin/wineserver" WINEPREFIX="$BOTTLE"
 export WINEDEBUG=-all MVK_CONFIG_LOG_LEVEL=1 W_OPT_UNATTENDED=1
 
-# --- ngen watchdog --------------------------------------------------------
+# --- ngen reaper ----------------------------------------------------------
 # The .NET installer's ngen optimizer (mscorsvw) frequently WEDGES on Wine and
-# never exits, so winetricks' "wait for processes" step hangs forever. It can
-# wedge either SPINNING (100% CPU) or IDLE (~0% CPU), so judge it by PROGRESS
-# (native images written), not CPU, and kill it once it's clearly not advancing.
-# ngen is only an optimization; .NET works fine without it (JITs at runtime).
-ngen_watchdog() {
-  local stalled=0
+# never exits, so winetricks' "wait for processes" step hangs. ngen only
+# PRE-compiles the framework's assemblies to native images: it's a startup
+# optimization, and .NET works fine without it (it JITs at runtime). So we don't
+# let it run at all: reap mscorsvw/ngen the moment it appears. Trade-off: the
+# first .NET app launch JITs (marginally slower once), but the install never
+# stalls on ngen. The framework FILES are installed by the MSI, not by ngen, so
+# killing it doesn't harm the install.
+ngen_reaper() {
   while :; do
-    sleep 20
     pgrep -f 'winetricks' >/dev/null 2>&1 || return 0    # install finished
-    pgrep -f 'mscorsvw.exe' >/dev/null 2>&1 || { stalled=0; continue; }
-    local wrote
-    wrote=$(find "$BOTTLE/drive_c/windows/Microsoft.NET" -name '*.dll' -newermt '-25 seconds' 2>/dev/null | grep -c .)
-    if [[ "$wrote" -eq 0 ]]; then
-      stalled=$((stalled+1))               # mscorsvw alive but no new native images
-      if [[ "$stalled" -ge 3 ]]; then      # ~60s of no progress (spinning OR idle) = wedged
-        warn "ngen/mscorsvw not progressing - killing it so the install can finish (optimization only)."
-        pkill -9 -f 'mscorsvw.exe' 2>/dev/null; pkill -9 -f 'ngen.exe' 2>/dev/null
-        stalled=0
-      fi
-    else stalled=0; fi                     # still writing images -> genuinely working
+    pkill -9 -f 'mscorsvw.exe' 2>/dev/null || true
+    pkill -9 -f 'ngen.exe' 2>/dev/null || true
+    sleep 2
   done
 }
 
 for verb in "$@"; do
   log "Installing runtime '$verb' into bottle '$BOTTLE_NAME' (auto, ngen-safe)…"
-  ngen_watchdog & WD=$!
+  ngen_reaper & WD=$!
   /usr/bin/arch -x86_64 "$WINETRICKS" -q "$verb" || warn "winetricks '$verb' returned non-zero (often OK if files landed)."
   kill "$WD" 2>/dev/null || true
   pkill -9 -f 'mscorsvw.exe' 2>/dev/null; pkill -9 -f 'ngen.exe' 2>/dev/null

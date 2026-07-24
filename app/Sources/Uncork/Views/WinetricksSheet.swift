@@ -108,10 +108,11 @@ struct WinetricksSheet: View {
                 }
             }
             if st == .installing {
-                // Live status so the install isn't a silent black box.
+                // Live status so the install isn't a silent black box. Two lines so
+                // the ".NET is slow / a pause is normal" note reads fully.
                 Text(ci.progress(bottle, id))
-                    .font(.system(size: 10)).foregroundStyle(.secondary.opacity(0.8))
-                    .lineLimit(1).truncationMode(.middle)
+                    .font(.system(size: 10)).foregroundStyle(.secondary.opacity(0.85))
+                    .lineLimit(2).fixedSize(horizontal: false, vertical: true)
             }
         }
     }

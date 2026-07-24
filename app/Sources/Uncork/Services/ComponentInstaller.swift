@@ -21,7 +21,11 @@ final class ComponentInstaller: ObservableObject {
         let k = key(bottle, verb)
         guard procs[k] == nil else { return }
         states[k] = .installing
-        lastLine[k] = "Starting…"
+        // .NET installs are slow (the NGen optimizer) and go silent for minutes, so
+        // set an honest expectation up front instead of a raw log line that freezes.
+        lastLine[k] = verb.hasPrefix("dotnet")
+            ? "Installing… .NET can take several minutes and may look paused (that's normal)."
+            : "Starting…"
         ActivityStore.shared.show("Installing \(verb)…", seconds: 4)
 
         let p = Process()
@@ -34,11 +38,18 @@ final class ComponentInstaller: ObservableObject {
         handle.readabilityHandler = { [weak self] h in
             let d = h.availableData
             guard !d.isEmpty, let s = String(data: d, encoding: .utf8) else { return }
-            // Keep the last meaningful line (skip blank/rule lines) for a live status.
-            let lines = s.split(whereSeparator: \.isNewline).map(String.init)
-                .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && !$0.hasPrefix("---") }
-            guard let line = lines.last else { return }
-            DispatchQueue.main.async { self?.lastLine[k] = String(line.prefix(80)) }
+            // Keep the last MEANINGFUL line for a live status: drop winetricks/Wine
+            // internals (warnings, fixme/err channels, raw paths, "Running/Executing
+            // <wine>") that read as noise and would freeze on a stray warning.
+            let noise = ["warning:", "wine:", "fixme:", "err:", "running ", "executing ", "using winetricks", "x connection"]
+            let lines = s.split(whereSeparator: \.isNewline).map(String.init).filter { raw in
+                let t = raw.trimmingCharacters(in: .whitespaces).lowercased()
+                if t.isEmpty || t.hasPrefix("---") { return false }
+                if t.contains("/users/") || t.contains("/library/") || t.contains("application support") { return false }
+                return !noise.contains { t.hasPrefix($0) }
+            }
+            guard let line = lines.last else { return }   // nothing meaningful → keep the current message
+            DispatchQueue.main.async { self?.lastLine[k] = String(line.prefix(90)) }
         }
         p.terminationHandler = { [weak self] proc in
             DispatchQueue.main.async {
