@@ -48,6 +48,19 @@ enum GameCompat: String {
     }
 }
 
+/// One game's documented fix, for the Compatibility page.
+struct CompatFix: Identifiable, Hashable {
+    let appid: String
+    let title: String
+    let verdict: GameCompat
+    let backend: String
+    let launchArgs: String
+    let winver: String
+    let anticheat: String
+    let notes: String
+    var id: String { appid }
+}
+
 /// Loads and caches compat/gamefixes.json (the protonfixes-for-Mac DB).
 final class CompatDB {
     static let shared = CompatDB()
@@ -84,6 +97,21 @@ final class CompatDB {
     func launchExe(appid: String) -> String? { games[appid]?["launch_exe"] as? String }
     /// Runtime components (winetricks verbs) this game needs, e.g. ["dotnet40"].
     func winetricks(appid: String) -> [String] { (games[appid]?["winetricks"] as? [String]) ?? [] }
+
+    /// Every documented game fix in the shipped DB, sorted by title: the record of
+    /// what Uncork does for each tested game (verdict, backend, args, notes).
+    func allFixes() -> [CompatFix] {
+        games.map { appid, g in
+            CompatFix(appid: appid,
+                      title: (g["title"] as? String) ?? appid,
+                      verdict: verdict(appid: appid),
+                      backend: (g["backend"] as? String) ?? "",
+                      launchArgs: (g["launch_args"] as? String) ?? "",
+                      winver: (g["winver"] as? String) ?? "",
+                      anticheat: (g["anticheat"] as? String) ?? "",
+                      notes: (g["notes"] as? String) ?? "")
+        }.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
 
     private func map(_ raw: String) -> GameCompat {
         switch raw {

@@ -21,6 +21,7 @@ struct GameDetailView: View {
     @State private var profile = "auto"
     @State private var backend = "auto"        // Epic/GOG graphics backend override
     @State private var hudOn = false
+    @State private var vdesktop = false        // Fullscreen (safe / virtual desktop)
     @State private var winver = ""
     @State private var launchArgs = ""
     @State private var dllOverrides = ""
@@ -68,6 +69,7 @@ struct GameDetailView: View {
             profile = UserOverrides.shared.profile(game.launchID)
             backend = UserOverrides.shared.backend(game.launchID)
             hudOn = UserOverrides.shared.hud(game.launchID)
+            vdesktop = UserOverrides.shared.virtualDesktop(game.launchID)
             winver = UserOverrides.shared.winver(game.launchID)
             launchArgs = UserOverrides.shared.launchArgs(game.launchID)
             dllOverrides = UserOverrides.shared.dllOverridesString(game.launchID)
@@ -75,6 +77,7 @@ struct GameDetailView: View {
         .onChange(of: profile) { _, v in UserOverrides.shared.setProfile(game.launchID, v) }
         .onChange(of: backend) { _, v in UserOverrides.shared.setBackend(game.launchID, v) }
         .onChange(of: hudOn)   { _, v in UserOverrides.shared.setHUD(game.launchID, v) }
+        .onChange(of: vdesktop) { _, v in UserOverrides.shared.setVirtualDesktop(game.launchID, v) }
         .onChange(of: winver)  { _, v in UserOverrides.shared.setWinver(game.launchID, v) }
         .onChange(of: launchArgs) { _, v in UserOverrides.shared.setLaunchArgs(game.launchID, v) }
         .onChange(of: dllOverrides) { _, v in UserOverrides.shared.setDLLOverridesString(game.launchID, v) }
@@ -326,6 +329,14 @@ struct GameDetailView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Performance overlay").font(.system(size: 13, weight: .medium))
                     Text("On-screen FPS & GPU stats while playing").font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+            }.toggleStyle(.switch).tint(DS.accent)
+            Divider().opacity(0.4)
+            Toggle(isOn: $vdesktop) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Fullscreen (safe)").font(.system(size: 13, weight: .medium))
+                    Text("Runs the game in a screen-sized window instead of exclusive fullscreen. Turn this on if the game crashes when you set fullscreen.")
+                        .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }.toggleStyle(.switch).tint(DS.accent)
         }

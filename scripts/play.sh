@@ -189,7 +189,7 @@ if [[ "$backend" == "d3dmetal" ]] && gptk_available; then
     gptk_export_env
     [[ -n "$dllo" ]] && export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:+$WINEDLLOVERRIDES;}$dllo"
     export SteamAppId="$appid" SteamGameId="$appid"
-    exec "$GPTK_WINE" "$GAME_EXE" $(compat_launch_args "$appid") >>"$GAME_LOG" 2>&1
+    exec "$GPTK_WINE" $(desktop_prefix) "$GAME_EXE" $(compat_launch_args "$appid") >>"$GAME_LOG" 2>&1
   ) &
   gpid=$!
   alive=1
@@ -333,7 +333,7 @@ else
     cd "$GAME_DIR" 2>/dev/null || true
     env ${GAME_ENV[@]+"${GAME_ENV[@]}"} \
       WINEPREFIX="$BOTTLE" WINEDEBUG="${WINEDEBUG:--all}" MVK_CONFIG_LOG_LEVEL="${MVK_CONFIG_LOG_LEVEL:-1}" \
-      /usr/bin/arch -x86_64 "$WINE_BIN" "$GAME_EXE" $launch_args >>"$GAME_LOG" 2>&1
+      /usr/bin/arch -x86_64 "$WINE_BIN" $(desktop_prefix) "$GAME_EXE" $launch_args >>"$GAME_LOG" 2>&1
   ) &
   gpid=$!
 

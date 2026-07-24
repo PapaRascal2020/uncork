@@ -36,5 +36,5 @@ log "Launching ${exe##*/} in bottle '$BOTTLE_NAME' (DXMT/Metal)…"
 cd "$(dirname "$exe")" 2>/dev/null || true   # so the game finds sibling DLLs
 env ${GAME_ENV[@]+"${GAME_ENV[@]}"} \
   WINEPREFIX="$BOTTLE" WINEDEBUG="${WINEDEBUG:--all}" MVK_CONFIG_LOG_LEVEL="${MVK_CONFIG_LOG_LEVEL:-1}" \
-  /usr/bin/arch -x86_64 "$WINE_BIN" "$exe" >>"$GAME_LOG" 2>&1 &
+  /usr/bin/arch -x86_64 "$WINE_BIN" $(desktop_prefix) "$exe" >>"$GAME_LOG" 2>&1 &
 ok "Launched ${exe##*/} (bottle: $BOTTLE_NAME)."

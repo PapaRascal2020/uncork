@@ -5,6 +5,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     case library   = "Library"
     case downloads = "Downloads"
     case wine      = "Wine Downloader"
+    case fixes     = "Compatibility"
     case setup     = "Setup"
     case userGuide  = "User Guide"
     case developers = "Developer Guide"
@@ -17,6 +18,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .library:   return "square.stack.fill"
         case .downloads: return "arrow.down.circle.fill"
         case .wine:      return "wineglass.fill"
+        case .fixes:     return "checklist"
         case .setup:     return "wrench.and.screwdriver.fill"
         case .userGuide:  return "book.fill"
         case .developers: return "chevron.left.forwardslash.chevron.right"
@@ -80,7 +82,7 @@ struct ContentView: View {
                 if !browseEntries.isEmpty {
                     Section("Browse") { ForEach(browseEntries) { browseRow($0) } }
                 }
-                Section { row(.wine); row(.userGuide); row(.developers); row(.setup); row(.about) }
+                Section { row(.wine); row(.fixes); row(.userGuide); row(.developers); row(.setup); row(.about) }
             }
             .navigationSplitViewColumnWidth(min: 200, ideal: 220)
             .safeAreaInset(edge: .top) {
@@ -105,6 +107,7 @@ struct ContentView: View {
                     case .library:   LibraryView()
                     case .downloads: DownloadsView()
                     case .wine:      WineManagerView()
+                    case .fixes:     CompatFixesView()
                     case .setup:     SetupView()
                     case .userGuide:  UserGuideView()
                     case .developers: DeveloperGuideView()

@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 /// Runs Uncork's shell primitives (launch a game, a store) without blocking the
 /// UI. Bridges the SwiftUI buttons to the engine scripts.
@@ -11,24 +12,34 @@ enum LaunchService {
         // Every launch writes to a per-game log the scripts read from UNCORK_GAME_LOG.
         // A diagnostic relaunch also raises the Wine log level (UNCORK_DIAGNOSTIC=1),
         // so the log captures Wine's own errors, not just the game's output.
-        var logEnv = ["UNCORK_GAME_LOG": GameLog.path(for: game)]
-        if diagnostic { logEnv["UNCORK_DIAGNOSTIC"] = "1" }
+        var base = ["UNCORK_GAME_LOG": GameLog.path(for: game)]
+        if diagnostic { base["UNCORK_DIAGNOSTIC"] = "1" }
+        // Fullscreen-safe (virtual desktop): pass the screen size so the launch
+        // scripts wrap the game in a screen-sized Wine desktop. Applies to any store.
+        if UserOverrides.shared.virtualDesktop(game.launchID) { base["UNCORK_DESKTOP"] = screenWxH() }
         switch game.source {
-        case .steam: return process("play.sh", [game.launchID], env: logEnv)
+        case .steam: return process("play.sh", [game.launchID], env: base)
         case .epic:  return process("epic.sh", ["launch", game.launchID, "--skip-version-check"],
-                                    env: logEnv.merging(compatEnv(game)) { _, b in b })
+                                    env: base.merging(compatEnv(game)) { _, b in b })
         case .gog:
             // gog.sh launch <install_path> <id>: direct-launches the exe on D3DMetal.
             let path = Paths.data + "/bottles/gog/drive_c/GOG Games/" + game.installDir
             return process("gog.sh", ["launch", path, game.launchID],
-                           env: logEnv.merging(compatEnv(game)) { _, b in b })
+                           env: base.merging(compatEnv(game)) { _, b in b })
         case .custom:
             guard let exe = game.exePath else { return nil }
             // Native Mac game → run the .app directly (no Wine, no bottle).
-            if game.hasMac { return process("run-mac.sh", [exe, game.launchID], env: logEnv) }
+            if game.hasMac { return process("run-mac.sh", [exe, game.launchID], env: base) }
             return process("run-exe.sh", [exe, game.launchID],
-                           env: logEnv.merging(["BOTTLE_NAME": game.bottle ?? "steam"]) { _, b in b })
+                           env: base.merging(["BOTTLE_NAME": game.bottle ?? "steam"]) { _, b in b })
         }
+    }
+
+    /// Main-screen size (points) as "WxH" for the Wine virtual desktop; a safe 16:9
+    /// default if it can't be read.
+    private static func screenWxH() -> String {
+        guard let s = NSScreen.main else { return "1920x1080" }
+        return "\(Int(s.frame.width))x\(Int(s.frame.height))"
     }
 
     /// Per-game compatibility env for Epic/GOG launches, from the user's overrides:

@@ -88,9 +88,17 @@ read_field() { python3 -c "import json,sys; print(json.load(open('$LEGENDARY_CON
 # we take everything after the quoted exe (the -AUTH.../-Epic... args). Empty if not
 # signed in or the game needs none, and harmless to pass to games that ignore them.
 epic_launch_args() {  # $1 = app name
-  # legendary logs to stderr, so merge it (2>&1) or the parameters line is lost.
-  "${LEG[@]}" launch "$1" --dry-run --skip-version-check 2>&1 \
-    | sed -n "s/.*Launch parameters:[^']*'[^']*'[[:space:]]*//p" | tail -1
+  # Bounded: if the dry-run is slow/hangs (bad network, stale session) we must NOT
+  # stall a launch that used to be instant, so cap it and fall back to no args (an
+  # identical launch to before). legendary logs to stderr, so merge it (2>&1) or the
+  # parameters line is lost.
+  local out; out="$(mktemp 2>/dev/null)" || return 0
+  ( "${LEG[@]}" launch "$1" --dry-run --skip-version-check >"$out" 2>&1 ) & local p=$!
+  ( sleep 15; kill "$p" 2>/dev/null ) & local k=$!
+  wait "$p" 2>/dev/null || true
+  kill "$k" 2>/dev/null || true
+  sed -n "s/.*Launch parameters:[^']*'[^']*'[[:space:]]*//p" "$out" | tail -1
+  rm -f "$out"
 }
 
 if [[ "${1:-}" == "launch" ]] && gptk_available && [[ "${UNCORK_BACKEND:-d3dmetal}" == "d3dmetal" ]]; then
@@ -104,7 +112,7 @@ if [[ "${1:-}" == "launch" ]] && gptk_available && [[ "${UNCORK_BACKEND:-d3dmeta
   status "Launching via D3DMetal…" 2>/dev/null || true
   log "Launching '$app' via D3DMetal (GPTk): $iexe"
   cd "$ipath"
-  exec "$GPTK_WINE" "$iexe" $epic_args ${UNCORK_LAUNCH_ARGS:-} >>"$GAME_LOG" 2>&1
+  exec "$GPTK_WINE" $(desktop_prefix) "$iexe" $epic_args ${UNCORK_LAUNCH_ARGS:-} >>"$GAME_LOG" 2>&1
 fi
 
 # Commands that actually run Wine need the Epic bottle to exist + be DXMT-ready.
@@ -129,7 +137,7 @@ if [[ "${1:-}" == "launch" && "${UNCORK_BACKEND:-}" == "dxmt" ]]; then
   env WINEPREFIX="$BOTTLE" WINEDEBUG="${WINEDEBUG:--all}" MVK_CONFIG_LOG_LEVEL="${MVK_CONFIG_LOG_LEVEL:-1}" \
       WINEDLLOVERRIDES="d3d11,dxgi,d3d10core=b" \
       DYLD_FALLBACK_LIBRARY_PATH="$WINE_HOME/lib:$WINE_HOME/lib/wine/x86_64-unix${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}" \
-      /usr/bin/arch -x86_64 "$WINE_BIN" "$iexe" $epic_args ${UNCORK_LAUNCH_ARGS:-} >>"$GAME_LOG" 2>&1
+      /usr/bin/arch -x86_64 "$WINE_BIN" $(desktop_prefix) "$iexe" $epic_args ${UNCORK_LAUNCH_ARGS:-} >>"$GAME_LOG" 2>&1
   exit $?
 fi
 

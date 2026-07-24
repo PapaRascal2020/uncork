@@ -95,8 +95,19 @@ a profile's engine on demand.
 ### User overrides: `overrides.json`
 
 Per-user, per-game choices the app writes and the scripts read: `profile`,
-`backend`, `winver`, `hud`, `launch_args`, `dll_overrides`. Always wins over the
-shipped DB, so a UI toggle takes effect on the next launch.
+`backend`, `winver`, `hud`, `launch_args`, `dll_overrides`, `virtual_desktop`.
+Always wins over the shipped DB, so a UI toggle takes effect on the next launch.
+
+**Fullscreen (safe):** `virtual_desktop` makes the app pass `UNCORK_DESKTOP=<WxH>`
+(the screen size); `lib.sh`'s `desktop_prefix` then wraps the launch in
+`explorer /desktop=Uncork,<WxH>`, so the game runs in a borderless screen-sized Wine
+desktop instead of an exclusive fullscreen mode switch (which crashes many games on
+Wine/DXMT, e.g. Sonic Mania). Off by default and empty when off, so a working game's
+launch is unchanged.
+
+The **Compatibility page** (`CompatFixesView`) surfaces this record: `CompatDB.allFixes()`
+lists every documented game fix from `gamefixes.json` (verdict, backend, args, notes),
+and `UserOverrides.summary()` lists the player's own per-game changes.
 
 Steam games tune via the profile picker (`profile` → `compat_backend` in play.sh).
 **Epic and GOG** get a direct backend dropdown (`backend`: auto / d3dmetal / dxmt)

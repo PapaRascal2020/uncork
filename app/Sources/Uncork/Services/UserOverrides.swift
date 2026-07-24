@@ -27,6 +27,30 @@ final class UserOverrides {
         try? d.write(to: url)
     }
 
+    /// Run this game in a Wine virtual desktop (borderless, screen-sized) instead of
+    /// exclusive fullscreen, which crashes many games on Wine/DXMT. Off by default.
+    func virtualDesktop(_ id: String) -> Bool { (data[id]?["virtual_desktop"] as? Bool) ?? false }
+    func setVirtualDesktop(_ id: String, _ on: Bool) {
+        var g = data[id] ?? [:]
+        if on { g["virtual_desktop"] = true } else { g.removeValue(forKey: "virtual_desktop") }
+        data[id] = g; save()
+    }
+
+    /// Ids of games the user has set any override on (for the Compatibility page).
+    func allIDs() -> [String] { Array(data.keys) }
+    /// A one-line summary of a game's overrides, or "" if none meaningful.
+    func summary(_ id: String) -> String {
+        var parts: [String] = []
+        let b = backend(id); if b != "auto" { parts.append("backend: \(b)") }
+        let p = profile(id); if p != "auto" { parts.append("profile: \(p)") }
+        let w = winver(id); if !w.isEmpty { parts.append("Windows: \(w)") }
+        let a = launchArgs(id); if !a.isEmpty { parts.append("args: \(a)") }
+        if hud(id) { parts.append("performance overlay on") }
+        if virtualDesktop(id) { parts.append("fullscreen: virtual desktop") }
+        let d = dllOverridesString(id); if !d.isEmpty { parts.append("dll: \(d)") }
+        return parts.joined(separator: " · ")
+    }
+
     func hud(_ appid: String) -> Bool { (data[appid]?["hud"] as? Bool) ?? false }
     func setHUD(_ appid: String, _ on: Bool) {
         var g = data[appid] ?? [:]; g["hud"] = on; data[appid] = g; save()

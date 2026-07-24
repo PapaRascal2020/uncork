@@ -163,6 +163,14 @@ game_log_init() {  # <header line>
   } > "$UNCORK_GAME_LOG" 2>/dev/null || true
 }
 
+# Wine virtual-desktop launch prefix. When the app requests it (UNCORK_DESKTOP=WxH,
+# the "Fullscreen (safe)" toggle) this expands to `explorer /desktop=Uncork,WxH` so
+# the game runs in a borderless screen-sized Wine desktop instead of an exclusive
+# fullscreen mode switch (which crashes many games on Wine/DXMT). Empty otherwise,
+# so a game without the toggle launches exactly as before. Use UNQUOTED in the wine
+# command so it word-splits into two args (or nothing).
+desktop_prefix() { [[ -n "${UNCORK_DESKTOP:-}" ]] && printf 'explorer /desktop=Uncork,%s' "$UNCORK_DESKTOP" || true; }
+
 c_blue=$'\033[34m'; c_green=$'\033[32m'; c_yellow=$'\033[33m'; c_red=$'\033[31m'; c_off=$'\033[0m'
 log()  { printf '%s==>%s %s\n' "$c_blue"  "$c_off" "$*"; _glog "==> $*"; }
 ok()   { printf '%s✓%s %s\n'  "$c_green" "$c_off" "$*"; _glog "[ok] $*"; }

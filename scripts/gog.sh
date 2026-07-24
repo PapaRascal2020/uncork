@@ -159,7 +159,7 @@ if [[ "${1:-}" == "launch" ]] && gptk_available && [[ "${UNCORK_BACKEND:-d3dmeta
     game_log_init "GOG ${gpath##*/} (id ${gid:-?}), exe ${exe##*/}, backend d3dmetal"
     status "Launching via D3DMetal…" 2>/dev/null || true
     log "Launching GOG game via D3DMetal (GPTk): $exe"
-    cd "$gpath"; exec "$GPTK_WINE" "$exe" ${UNCORK_LAUNCH_ARGS:-} >>"$GAME_LOG" 2>&1
+    cd "$gpath"; exec "$GPTK_WINE" $(desktop_prefix) "$exe" ${UNCORK_LAUNCH_ARGS:-} >>"$GAME_LOG" 2>&1
   fi
   warn "Couldn't resolve a game exe under '$gpath'; falling back to gogdl launch."
 fi
@@ -179,7 +179,7 @@ if [[ "${1:-}" == "launch" && "${UNCORK_BACKEND:-}" == "dxmt" ]]; then
   env WINEPREFIX="$BOTTLE" WINEDEBUG="${WINEDEBUG:--all}" MVK_CONFIG_LOG_LEVEL="${MVK_CONFIG_LOG_LEVEL:-1}" \
       WINEDLLOVERRIDES="d3d11,dxgi,d3d10core=b" \
       DYLD_FALLBACK_LIBRARY_PATH="$WINE_HOME/lib:$WINE_HOME/lib/wine/x86_64-unix${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}" \
-      /usr/bin/arch -x86_64 "$WINE_BIN" "$exe" ${UNCORK_LAUNCH_ARGS:-} >>"$GAME_LOG" 2>&1
+      /usr/bin/arch -x86_64 "$WINE_BIN" $(desktop_prefix) "$exe" ${UNCORK_LAUNCH_ARGS:-} >>"$GAME_LOG" 2>&1
   exit $?
 fi
 
