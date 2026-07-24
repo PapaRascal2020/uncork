@@ -174,7 +174,10 @@ Uncork is free and open source, and built to be extended. Most fixes are data, n
 code: a game's settings live in `compat/gamefixes.json` and a new store is a template
 in `compat/store-templates.json`, so you can fix a game or add a store without
 rebuilding the app. Game fixes, store templates, Wine build recipes, and patches are
-all welcome. See `docs/DEVELOPERS.md` to get started.
+all welcome.
+
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for how to report a game, add a fix, or add
+a store, and `docs/DEVELOPERS.md` for the architecture.
 
 ## License
 
