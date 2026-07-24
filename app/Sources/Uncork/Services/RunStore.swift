@@ -73,7 +73,7 @@ final class RunStore: ObservableObject {
                 // exit ≠ 0 = the launch itself failed.
                 guard self.states[id] == .launching else { return }
                 if proc.terminationStatus == 0 {
-                    self.launchMessage[id] = "Waiting for the game window…"
+                    self.launchMessage[id] = "Almost there, waiting for the game to open (first launch can take a while)…"
                     self.deadline[id] = Date().addingTimeInterval(self.appearWindow)
                 } else {
                     self.states[id] = .failed
@@ -154,6 +154,12 @@ final class RunStore: ObservableObject {
                     states[id] = .failed                     // never appeared → didn't start
                     launchMessage[id] = nil
                     ActivityStore.shared.error("\(shortTitle(id)) didn't start: open its page → Compatibility")
+                } else if let msg = launchMessage[id], !msg.isEmpty {
+                    // Still launching (Steam signing in, or the game decrypting/loading
+                    // after the script exited). Re-arm the bottom pill each tick so it
+                    // stays visible for the whole launch instead of lapsing after the
+                    // last status line, which read as "nothing is happening".
+                    ActivityStore.shared.show(msg, seconds: 6)
                 }
             case .running:
                 if isRun {

@@ -91,6 +91,45 @@ backend="$(compat_backend "$appid")"
 [[ -n "$backend" ]] || backend="$(gptk_available && echo d3dmetal || echo dxmt)"
 log "Compatibility profile: $(compat_profile "$appid" | sed 's/^$/auto/') → backend $backend"
 
+# --- Steam DRM (SteamStub) detection ----------------------------------------
+# A SteamStub-wrapped exe is encrypted and only decrypts with a signed-in Steam
+# client that owns the app. It therefore CANNOT run through the isolated D3DMetal
+# prefix (no Steam client lives there) and usually refuses a plain direct launch:
+# it has to be started BY Steam (-applaunch), which decrypts it, then spawns it.
+# Deciding this up front avoids the launch-die-retry flicker of trying D3DMetal
+# and a direct launch first. The compat DB 'drm' field wins (true forces it, false
+# disables it); otherwise auto-detect the SteamStub ".bind" PE section (the same
+# marker Steamless uses). This is SteamStub-specific, so games that merely use the
+# Steamworks API (most of them) are unaffected and keep their normal backend.
+is_steam_stub() {  # <exe>  -> exit 0 if the PE carries a .bind (SteamStub) section
+  python3 - "$1" <<'PY' 2>/dev/null
+import sys, struct
+try:
+    f = open(sys.argv[1], "rb"); head = f.read(0x400)
+    if head[:2] != b"MZ": sys.exit(1)
+    pe = struct.unpack_from("<I", head, 0x3C)[0]
+    f.seek(pe)
+    if f.read(4) != b"PE\0\0": sys.exit(1)
+    coff = f.read(20)
+    nsec = struct.unpack_from("<H", coff, 2)[0]
+    optsz = struct.unpack_from("<H", coff, 16)[0]
+    f.seek(pe + 24 + optsz)          # section table = after PE sig + COFF + optional header
+    for _ in range(nsec):
+        if f.read(40)[:8].rstrip(b"\0") == b".bind": sys.exit(0)
+    sys.exit(1)
+except Exception:
+    sys.exit(1)
+PY
+}
+
+drm_flag="$(compat_get "$appid" drm)"
+FORCE_APPLAUNCH=0
+if [[ "$drm_flag" == "true" ]] || { [[ "$drm_flag" != "false" ]] && is_steam_stub "$GAME_EXE"; }; then
+  log "Steam DRM detected (SteamStub / DB flag): launching through the Steam client."
+  backend="dxmt"         # D3DMetal's isolated prefix has no Steam client; run in the main bottle
+  FORCE_APPLAUNCH=1
+fi
+
 # Per-game DLL overrides fragment (user "dll_overrides"), appended to
 # WINEDLLOVERRIDES in whichever launch path runs below.
 dllo="$(compat_dll_overrides "$appid")"
@@ -222,11 +261,21 @@ steam_ensure_running || warn "Steam client did not come up; trying to launch any
 # ALWAYS wait for sign-in before launching, whether we just started Steam or it
 # was pre-warmed. Firing -applaunch before 'Logged On' makes Steam silently DROP
 # it (the game never starts and the button hangs on "Waiting for the game window").
+# First sign-in in a fresh bottle (no cached credentials yet) genuinely takes a
+# while under Wine, so tell the user up front rather than looking stuck. Marked
+# once we've seen a successful login, so repeat launches show the short message.
+FIRST_LOGIN_MARK="$BOTTLE/.uncork-steam-signed-in"
 if ! steam_logged_in; then
-  status "Signing in to Steam…"
+  if [[ -f "$FIRST_LOGIN_MARK" ]]; then
+    status "Signing in to Steam…"
+  else
+    status "Signing in to Steam (first time can take up to 2 minutes)…"
+  fi
   for _ in $(seq 1 60); do steam_logged_in && break; sleep 3; done
 fi
-if steam_logged_in; then status "Steam ready"; ok "Steam is logged in."; else
+if steam_logged_in; then
+  status "Steam ready"; ok "Steam is logged in."; touch "$FIRST_LOGIN_MARK" 2>/dev/null || true
+else
   warn "Steam did not confirm login in time - launching anyway (may fail Steamworks init)."
 fi
 
@@ -256,32 +305,46 @@ GAME_ENV+=("DYLD_FALLBACK_LIBRARY_PATH=$WINE_HOME/lib:$WINE_HOME/lib/wine/x86_64
 GAME_ENV+=("SteamAppId=$appid" "SteamGameId=$appid" "SteamOverlayGameId=$appid")
 game_exe_name="$(basename "$GAME_EXE")"
 
-status "Launching ${installdir}…"
-log "Launching $installdir directly ($game_exe_name; DXMT graphics env on the game process)…"
+# Start the game THROUGH Steam so it decrypts SteamStub DRM then spawns the game.
+# GAME_ENV (incl. the DXMT graphics overrides + the winemetal Metal-bridge search
+# path) rides on the `wine steam.exe` process, and the game Steam spawns inherits
+# it, so DXMT still applies even though we didn't run the exe ourselves.
 # NB: ${arr[@]+"${arr[@]}"} expands to nothing when GAME_ENV is empty, the
-# bash-3.2-safe idiom. Plain "${GAME_ENV[@]}" throws "unbound variable" under
-# `set -u` on an empty array, which silently killed the launch subshell.
-(
-  cd "$GAME_DIR" 2>/dev/null || true
-  env ${GAME_ENV[@]+"${GAME_ENV[@]}"} \
-    WINEPREFIX="$BOTTLE" WINEDEBUG="${WINEDEBUG:--all}" MVK_CONFIG_LOG_LEVEL="${MVK_CONFIG_LOG_LEVEL:-1}" \
-    /usr/bin/arch -x86_64 "$WINE_BIN" "$GAME_EXE" $launch_args >/dev/null 2>&1
-) &
-gpid=$!
-
-# DRM fallback: a few SteamStub titles must be started BY Steam (it decrypts,
-# then relaunches). If the direct process is gone within ~14s AND no game
-# process is running, retry through Steam's -applaunch. (Most games, incl.
-# Among Us, launch fine directly; this only rescues the strict-DRM few.)
-launched_via="direct"
-for _ in $(seq 1 7); do kill -0 "$gpid" 2>/dev/null || break; sleep 2; done
-if ! kill -0 "$gpid" 2>/dev/null && ! pgrep -f "$game_exe_name" >/dev/null 2>&1; then
-  status "Direct launch exited early (Steam DRM?) - retrying through Steam…"
-  log "Direct launch exited <14s; falling back to -applaunch $appid."
+# bash-3.2-safe idiom (plain "${GAME_ENV[@]}" throws "unbound variable" under -u).
+applaunch_game() {
   env ${GAME_ENV[@]+"${GAME_ENV[@]}"} \
     WINEPREFIX="$BOTTLE" WINEDEBUG="${WINEDEBUG:--all}" MVK_CONFIG_LOG_LEVEL="${MVK_CONFIG_LOG_LEVEL:-1}" \
     /usr/bin/arch -x86_64 "$WINE_BIN" "$STEAM_EXE" -applaunch "$appid" $launch_args >/dev/null 2>&1 &
+}
+
+if [[ "$FORCE_APPLAUNCH" == "1" ]]; then
+  # Known Steam DRM: go straight through Steam (no doomed direct attempt first, so
+  # the Play button doesn't flick running→stopped→running before the game starts).
+  status "Launching ${installdir} through Steam… (the window can take up to 30 seconds)"
+  log "Launching $installdir via Steam -applaunch $appid (DRM decrypt)."
+  applaunch_game
   launched_via="applaunch"
+else
+  status "Launching ${installdir}… (the window can take up to 30 seconds)"
+  log "Launching $installdir directly ($game_exe_name; DXMT graphics env on the game process)…"
+  (
+    cd "$GAME_DIR" 2>/dev/null || true
+    env ${GAME_ENV[@]+"${GAME_ENV[@]}"} \
+      WINEPREFIX="$BOTTLE" WINEDEBUG="${WINEDEBUG:--all}" MVK_CONFIG_LOG_LEVEL="${MVK_CONFIG_LOG_LEVEL:-1}" \
+      /usr/bin/arch -x86_64 "$WINE_BIN" "$GAME_EXE" $launch_args >/dev/null 2>&1
+  ) &
+  gpid=$!
+
+  # DRM fallback for anything we didn't detect up front: if the direct process is
+  # gone within ~14s AND no game process is running, retry through Steam.
+  launched_via="direct"
+  for _ in $(seq 1 7); do kill -0 "$gpid" 2>/dev/null || break; sleep 2; done
+  if ! kill -0 "$gpid" 2>/dev/null && ! pgrep -f "$game_exe_name" >/dev/null 2>&1; then
+    status "Direct launch exited early (Steam DRM?) - retrying through Steam…"
+    log "Direct launch exited <14s; falling back to -applaunch $appid."
+    applaunch_game
+    launched_via="applaunch"
+  fi
 fi
 ok "Launched $installdir (AppID $appid) via $launched_via."
 echo "    The game window may take a few seconds to appear."
