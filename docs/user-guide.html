@@ -226,6 +226,8 @@
       <div class="nav-group">
         <h4>Getting the best</h4>
         <a href="#compat">Make a game run better</a>
+        <a href="#cloud">Cloud saves</a>
+        <a href="#controllers">Controllers</a>
         <a href="#wine">Try another Wine version</a>
       </div>
       <div class="nav-group">
@@ -271,6 +273,8 @@
         <h3>Add your own store</h3>
         <p>Use <strong>Add Store</strong> for anything not listed. Choose Windows (Uncork installs it and you point it at the launcher) or Mac (pick an app you already have). You can also share a setup: once a store works well, use <strong>Save as Template</strong> to export it, and others can <strong>Run Template</strong> to get the exact same setup.</p>
         <div class="note"><span class="ico">&#9873;</span><p>Each store tile shows a <strong>macOS</strong> or <strong>Windows</strong> badge so you can see at a glance how it runs.</p></div>
+        <h3>Browse the store</h3>
+        <p>Once a store is set up, it gets its own entry under <strong>Browse</strong> in the sidebar (Steam, Epic and GOG all have one). That opens the store's web page right inside Uncork, so you can buy or claim games without leaving the app. After you buy or claim something, open your <strong>Library</strong> and refresh to install it. If you add your own store, you can give it a store page too.</p>
       </section>
 
       <section id="library">
@@ -313,6 +317,27 @@
           <li><strong>Apply fixes</strong>: re-runs every known fix for the game. Use it when a game will not launch.</li>
         </ul>
         <div class="note"><span class="ico">&#9873;</span><p>The badge on each game page tells you if it <strong>should work</strong>, <strong>needs work</strong>, or is <strong>untested</strong>, so you know whether a game is worth troubleshooting.</p></div>
+      </section>
+
+      <section id="cloud">
+        <h2>Cloud saves</h2>
+        <p>Keep your progress in sync across machines. Open a game's page and find the <strong>Cloud saves</strong> card:</p>
+        <ul>
+          <li><strong>Epic</strong>: press <strong>Sync now</strong>. Uncork usually finds the save location for you.</li>
+          <li><strong>GOG</strong>: first choose the folder where the game keeps its saves (the card has a picker), then <strong>Sync now</strong>.</li>
+          <li>Need to force a direction? The <strong>&#8943;</strong> menu on the card has <strong>Upload to cloud</strong> and <strong>Download from cloud</strong>.</li>
+        </ul>
+        <div class="note"><span class="ico">&#9873;</span><p><strong>Steam</strong> saves sync on their own through Steam Cloud in the Steam client, so there is nothing to do for Steam games. Syncing is manual for now: run it before you switch machines and after you finish playing.</p></div>
+      </section>
+
+      <section id="controllers">
+        <h2>Controllers</h2>
+        <p>Uncork turns on gamepad support automatically for every game. What matters is whether your Mac itself recognizes the controller, since Uncork can only pass on a pad macOS already sees.</p>
+        <ul>
+          <li><strong>These work</strong>: a genuine Xbox Series or Xbox One controller (wired or Bluetooth), a PlayStation DualSense or DualShock 4, any MFi controller, and 8BitDo pads in their Xinput mode.</li>
+          <li><strong>These do not</strong>: third-party Xbox controllers that only Windows supports (for example the Turtle Beach Recon). macOS has no driver for them, so no app can use them. A hardware adapter (such as a MayFlash Magic-NS or an 8BitDo wireless adapter) can convert one into a controller your Mac accepts.</li>
+          <li><strong>Not detected?</strong> Start the game first, then unplug and replug the controller. macOS sometimes misses one that was connected before launch.</li>
+        </ul>
       </section>
 
       <section id="wine">

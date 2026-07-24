@@ -235,6 +235,7 @@
         <h4>App</h4>
         <a href="#wine-downloader">Wine Downloader</a>
         <a href="#library">Library and artwork</a>
+        <a href="#cloud-saves">Cloud saves</a>
         <a href="#contract">App to script contract</a>
       </div>
       <div class="nav-group">
@@ -370,6 +371,12 @@
         <h2>Library and artwork</h2>
         <p>The Library is one grid of every owned game across stores plus user-added apps, with <strong>Mac | Windows | All</strong> platform tabs and a per-tile platform badge. Add a game directly: <strong>Add Windows Game</strong> (an <code>.exe</code> via Wine) or <strong>Add Mac Game</strong> (a native <code>.app</code>).</p>
         <p>The game detail page is Steam-styled: a wide <code>library_hero</code> banner with the transparent game <code>logo</code> overlaid. For titles Uncork cannot pull art for (or to override what it did), <strong>custom artwork</strong> (<code>CustomArtStore</code>) lets the user set a banner or a cover image; the picked file is copied into <code>data/art/</code> and always wins over CDN art.</p>
+      </section>
+
+      <section id="cloud-saves">
+        <h2>Cloud saves</h2>
+        <p>Epic and GOG saves sync through the CLIs already bundled. <strong>Epic</strong> uses <code>legendary sync-saves &lt;app&gt;</code> (via the <code>epic.sh</code> passthrough; legendary resolves the save path from the game's <code>CloudSaveFolder</code> metadata against the epic bottle). <strong>GOG</strong> uses <code>gogdl save-sync &lt;path&gt; &lt;id&gt; --os windows --ts &lt;ts&gt;</code> (the new <code>gog.sh save-sync</code> command), which needs the save folder set explicitly plus a last-sync timestamp. <strong>Steam</strong> saves are Steam Cloud's job inside the client, so Uncork does not manage them; custom games have no cloud.</p>
+        <p>The scripts stay stateless: the app's <code>CloudSaveStore</code> owns <code>cloud-saves.json</code> (per-game save folder + last-sync time) and passes those in, and <code>CloudSaveService</code> runs the sync (two-way, or force upload/download) and stamps the time on success. The detail page's Cloud saves card exposes Sync / Upload / Download and a save-folder picker rooted at the game's bottle. Auto-sync on launch/close is a deliberate follow-up (kept manual for now so a wrong save folder cannot clobber the cloud).</p>
       </section>
 
       <section id="contract">

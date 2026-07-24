@@ -181,6 +181,23 @@ override what it did), **custom artwork** (`CustomArtStore`) lets the user set a
 banner or a cover image; the picked file is copied into `data/art/` and always
 wins over CDN art.
 
+### Cloud saves
+
+Epic and GOG saves sync through the same CLIs Uncork already bundles. **Epic** goes
+through `legendary sync-saves <app>` (via the `epic.sh` passthrough; legendary
+resolves the save path from the game's `CloudSaveFolder` metadata against the epic
+bottle). **GOG** goes through `gogdl save-sync <path> <id> --os windows --ts <ts>`
+(the `gog.sh save-sync` command); GOG needs the save folder set explicitly and a
+last-sync timestamp. **Steam** saves are Steam Cloud's job inside the client, so
+Uncork does not manage them; custom games have no cloud.
+
+The scripts stay stateless: the app's `CloudSaveStore` owns `cloud-saves.json`
+(per-game save folder + last-sync time) and passes those in, and `CloudSaveService`
+runs the sync (two-way, or force upload/download) and marks the time on success.
+The detail page's Cloud saves card exposes Sync / Upload / Download and a save-folder
+picker rooted at the game's bottle. Auto-sync on launch/close is a deliberate
+follow-up (kept manual for now so a wrong save folder can't clobber the cloud).
+
 ## App to script contract
 
 The app spawns scripts with `Paths.scriptEnvironment(...)`, which points them at

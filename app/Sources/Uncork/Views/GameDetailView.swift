@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Steam-style game page: hero art, playtime stats, a prominent Play/Install, and
 /// all the per-game config (compatibility profile, Windows version, performance
@@ -13,6 +14,8 @@ struct GameDetailView: View {
     @ObservedObject private var pdb = ProtonDBStore.shared
     @ObservedObject private var engine = EngineDownloader.shared
     @ObservedObject private var art = CustomArtStore.shared
+    @ObservedObject private var cloud = CloudSaveService.shared
+    @ObservedObject private var cloudStore = CloudSaveStore.shared
 
     @State private var profile = "auto"
     @State private var hudOn = false
@@ -42,6 +45,8 @@ struct GameDetailView: View {
                     performanceCard
                     if game.source == .steam { advancedCard }
                     if game.source == .steam { componentsCard }
+                    if game.source == .steam { steamCloudNote }
+                    else if CloudSaveService.supported(game) { cloudSavesCard }
                     dangerZone
                 }
                 .padding(DS.Space.gutter)
@@ -346,6 +351,83 @@ struct GameDetailView: View {
             }
         }
         .padding(.top, 4)
+    }
+
+    /// Steam saves are handled by Steam Cloud in the client, not by Uncork.
+    private var steamCloudNote: some View {
+        card(icon: "icloud", title: "Cloud saves") {
+            Text("Steam saves sync automatically through Steam Cloud in the Steam client, so Uncork does not manage them separately.")
+                .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Epic/GOG cloud saves: sync two-way, or force upload/download, with the save
+    /// folder GOG needs (Epic auto-resolves it, but an override is allowed).
+    private var cloudSavesCard: some View {
+        let id = game.id
+        let sp = cloudStore.savePath(id)
+        let syncing = cloud.state(for: id) == .syncing
+        let needsFolder = game.source == .gog && sp.isEmpty
+        return card(icon: "icloud", title: "Cloud saves") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(game.source == .gog
+                     ? "Sync your GOG saves to the cloud. Set the folder where this game keeps its saves, then sync."
+                     : "Sync your Epic saves to the cloud.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 8) {
+                    Image(systemName: "folder").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(sp.isEmpty ? "Save folder not set" : (sp as NSString).lastPathComponent)
+                        .font(.system(size: 11)).foregroundStyle(needsFolder ? .orange : .secondary)
+                        .lineLimit(1).truncationMode(.middle)
+                    Spacer()
+                    Button(sp.isEmpty ? "Choose…" : "Change…") { pickSaveFolder() }.controlSize(.small)
+                    if !sp.isEmpty {
+                        Button { cloudStore.setPath(id, "") } label: { Image(systemName: "xmark.circle") }.buttonStyle(.plain)
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    Button { cloud.sync(game, mode: .auto) } label: {
+                        Label("Sync now", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 12, weight: .semibold)).padding(.vertical, 5).padding(.horizontal, 12)
+                    }
+                    .buttonStyle(.plain).foregroundStyle(.white)
+                    .background(Capsule().fill(DS.accent.opacity(syncing || needsFolder ? 0.4 : 1)))
+                    .disabled(syncing || needsFolder)
+
+                    Menu {
+                        Button { cloud.sync(game, mode: .up) }   label: { Label("Upload to cloud", systemImage: "arrow.up") }
+                        Button { cloud.sync(game, mode: .down) } label: { Label("Download from cloud", systemImage: "arrow.down") }
+                    } label: { Image(systemName: "ellipsis.circle") }
+                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                        .disabled(syncing || needsFolder)
+
+                    Spacer()
+                    if syncing { ProgressView().controlSize(.small) }
+                }
+
+                if let m = cloud.message(for: id), !m.isEmpty {
+                    Text(m).font(.system(size: 11))
+                        .foregroundStyle(cloud.state(for: id) == .failed ? .orange : .secondary)
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                } else if let d = cloudStore.lastSync(id) {
+                    Text("Last synced \(d.formatted(.relative(presentation: .named)))")
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    /// Pick the folder (inside the game's bottle) where it writes saves; gogdl/
+    /// legendary sync exactly this directory with the cloud.
+    private func pickSaveFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false
+        panel.message = "Choose the folder where \(game.title) stores its saves (inside its Wine drive_c)"
+        let root = Paths.data + "/bottles/\(game.bottleName)/drive_c"
+        if FileManager.default.fileExists(atPath: root) { panel.directoryURL = URL(fileURLWithPath: root) }
+        if panel.runModal() == .OK, let u = panel.url { cloudStore.setPath(game.id, u.path) }
     }
 
     @ViewBuilder private func card<Content: View>(icon: String, title: String, @ViewBuilder _ content: () -> Content) -> some View {

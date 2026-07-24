@@ -67,6 +67,23 @@ case "${1:-}" in
       warn "GOG game $gid doesn't appear to be installed."
     fi
     exit 0 ;;
+  save-sync)
+    # gog.sh save-sync <id> <save-path> <last-ts> [up|down|auto]
+    # Two-way GOG cloud save sync via gogdl. The app owns the per-game save folder
+    # and last-sync timestamp (cloud-saves.json) and passes them in, so this stays
+    # stateless. --os windows: we run the Windows build under Wine, so saves live in
+    # the Windows profile inside the bottle. No Wine needed to sync, so it's here in
+    # the early (client-free) dispatch.
+    gid="${2:?usage: gog.sh save-sync <id> <save-path> <last-ts> [up|down|auto]}"
+    spath="${3:?save-path required}"
+    ts="${4:-0}"; mode="${5:-auto}"
+    [[ -d "$spath" ]] || die "Save folder not found: $spath"
+    gargs=(--auth-config-path "$AUTH" save-sync "$spath" "$gid" --os windows --ts "$ts")
+    case "$mode" in
+      up)   gargs+=(--skip-download) ;;
+      down) gargs+=(--skip-upload) ;;
+    esac
+    exec "${GOGDL[@]}" "${gargs[@]}" ;;
   library)
     # Owned GOG games as JSON [{id,title,cover}]; gogdl has no list-games, so we
     # query GOG's account API with the stored token. (Token is fresh right after
