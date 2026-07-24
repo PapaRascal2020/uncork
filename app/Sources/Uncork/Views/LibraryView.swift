@@ -108,10 +108,14 @@ struct LibraryView: View {
                 }
             }
             if !org.collectionNames.isEmpty { Divider() }
-            Button { newCollectionTarget = g; newCollectionName = ""; showNewCollection = true } label: {
+            Button { promptNewCollection(for: g) } label: {
                 Label("New Collection…", systemImage: "plus")
             }
         } label: { Label("Collections", systemImage: "folder") }
+    }
+
+    private func promptNewCollection(for g: InstalledGame) {
+        newCollectionTarget = g; newCollectionName = ""; showNewCollection = true
     }
 
     /// The scrolling body: platform tab, empty states, and the game grid. Kept as
@@ -143,9 +147,11 @@ struct LibraryView: View {
         } else {
             LazyVGrid(columns: columns, alignment: .leading, spacing: 20) {
                 ForEach(filtered) { g in
-                    NavigationLink(value: g) { InstalledGameCard(game: g) }
-                        .buttonStyle(.plain)
-                        .contextMenu { gameContextMenu(g) }
+                    NavigationLink(value: g) {
+                        InstalledGameCard(game: g, onNewCollection: { promptNewCollection(for: $0) })
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu { gameContextMenu(g) }
                 }
             }
             .padding(DS.Space.gutter)
@@ -371,6 +377,9 @@ enum CompatFilter: String, CaseIterable, Identifiable {
 /// progress, and dims games that aren't downloaded yet.
 struct InstalledGameCard: View {
     let game: InstalledGame
+    /// Raised when the tile's menu asks to create a new collection (the naming
+    /// prompt lives on LibraryView).
+    var onNewCollection: (InstalledGame) -> Void = { _ in }
     @ObservedObject private var run = RunStore.shared
     @ObservedObject private var dl = DownloadManager.shared
     @ObservedObject private var art = CustomArtStore.shared
@@ -423,15 +432,40 @@ struct InstalledGameCard: View {
                 }
 
             HStack(spacing: 5) {
-                if org.isFavorite(game.id) {
-                    Image(systemName: "star.fill").font(.system(size: 10)).foregroundStyle(.yellow)
-                        .help("Favorite")
-                }
-                Text(game.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
                 if org.isHidden(game.id) {
                     Image(systemName: "eye.slash.fill").font(.system(size: 9)).foregroundStyle(.secondary)
                         .help("Hidden")
                 }
+                Text(game.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                Spacer(minLength: 4)
+                // Visible quick-favorite + a menu, so organizing doesn't rely on
+                // knowing to right-click.
+                Button { org.toggleFavorite(game.id) } label: {
+                    Image(systemName: org.isFavorite(game.id) ? "star.fill" : "star")
+                        .font(.system(size: 11))
+                        .foregroundStyle(org.isFavorite(game.id) ? .yellow : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help(org.isFavorite(game.id) ? "Remove from Favorites" : "Add to Favorites")
+                Menu {
+                    Button { org.setHidden(game.id, !org.isHidden(game.id)) } label: {
+                        Label(org.isHidden(game.id) ? "Unhide" : "Hide game",
+                              systemImage: org.isHidden(game.id) ? "eye" : "eye.slash")
+                    }
+                    Menu {
+                        ForEach(org.collectionNames, id: \.self) { c in
+                            Button { org.toggleCollection(game.id, c) } label: {
+                                Label(c, systemImage: org.inCollection(game.id, c) ? "checkmark" : "circle")
+                            }
+                        }
+                        if !org.collectionNames.isEmpty { Divider() }
+                        Button { onNewCollection(game) } label: { Label("New Collection…", systemImage: "plus") }
+                    } label: { Label("Collections", systemImage: "folder") }
+                } label: {
+                    Image(systemName: "ellipsis.circle").font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .help("Hide, or add to a collection")
             }
             CompatIndicator(game: game)
         }
