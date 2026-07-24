@@ -17,6 +17,9 @@ final class RunStore: ObservableObject {
     private var deadline: [String: Date] = [:]       // how long to wait for it to appear
     private var launchProcs: [String: Process] = [:] // the running launch script
     private var missStreak: [String: Int] = [:]      // consecutive "not running" polls (debounce)
+    // True for launches where the launch process IS the game (Epic/GOG exec into
+    // wine), so process-exit means the game closed, not "script backgrounded it".
+    private var execLaunch: [String: Bool] = [:]
     private var timer: Timer?
 
     /// Once the launch script has finished (it backgrounds the game and exits),
@@ -39,6 +42,10 @@ final class RunStore: ObservableObject {
         launchMessage[id] = diagnostic ? "Starting (diagnostic)…" : "Starting…"
         patterns[id] = game.installDir.isEmpty ? game.title : game.installDir
         deadline[id] = nil   // don't count down while the launch script runs
+        // Epic/GOG exec into the game (the launch process becomes the game); Steam and
+        // custom launches background the game and the script exits. That changes what
+        // process-exit means, so record it.
+        execLaunch[id] = (game.source == .epic || game.source == .gog)
 
         guard let p = LaunchService.launchProcess(for: game, diagnostic: diagnostic) else {
             states[id] = .failed; launchMessage[id] = "Couldn't start the launcher"; return
@@ -81,11 +88,24 @@ final class RunStore: ObservableObject {
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 handle.readabilityHandler = nil
+                let wasExec = self.execLaunch[id] == true
                 self.launchProcs[id] = nil
-                // Epic/custom scripts stay attached to the game; if it's already
-                // detected running, leave it. Otherwise: exit 0 = script launched
-                // and backgrounded the game (Steam) → start the appear window;
-                // exit ≠ 0 = the launch itself failed.
+                if wasExec {
+                    // The launch process WAS the game (Epic/GOG). Its exit ends the
+                    // session, whether or not we ever detected a window, so resolve
+                    // now: never start the "waiting for the game to open" countdown
+                    // for a game that has already closed. It ran if we saw it running
+                    // or it exited cleanly; otherwise it failed to start.
+                    let ranOK = self.states[id] == .running || proc.terminationStatus == 0
+                    if self.states[id] == .running { PlaytimeStore.shared.ended(id) }
+                    self.states[id] = ranOK ? .idle : .failed
+                    self.launchMessage[id] = ranOK ? nil
+                        : ((self.launchMessage[id] ?? "").isEmpty ? "Launch failed" : self.launchMessage[id])
+                    self.deadline[id] = nil; self.missStreak[id] = nil; self.execLaunch[id] = nil
+                    return
+                }
+                // Background launches (Steam/custom): the script backgrounded the game
+                // and exited. exit 0 → wait for the window to appear; exit ≠ 0 → failed.
                 guard self.states[id] == .launching else { return }
                 if proc.terminationStatus == 0 {
                     self.launchMessage[id] = "Almost there, waiting for the game to open (first launch can take a while)…"
@@ -134,6 +154,7 @@ final class RunStore: ObservableObject {
                 self.patterns[game.id] = nil
                 self.deadline[game.id] = nil
                 self.missStreak[game.id] = nil
+                self.execLaunch[game.id] = nil
                 PlaytimeStore.shared.ended(game.id)   // count the session we just stopped
             }
         }
@@ -158,9 +179,13 @@ final class RunStore: ObservableObject {
 
     private func apply(_ running: [String: Bool]) {
         for (id, isRun) in running {
+            // For an exec launch (Epic/GOG) the launch process IS the game, so its
+            // liveness is the source of truth even if the pgrep name doesn't match
+            // the exe. Its exit is handled promptly by the termination handler.
+            let alive = isRun || (execLaunch[id] == true && (launchProcs[id]?.isRunning ?? false))
             switch states[id] ?? .idle {
             case .launching:
-                if isRun {
+                if alive {
                     states[id] = .running; launchMessage[id] = nil            // window is up
                     missStreak[id] = 0
                     PlaytimeStore.shared.began(id)                            // start timing the session
@@ -177,7 +202,7 @@ final class RunStore: ObservableObject {
                     ActivityStore.shared.show(msg, seconds: 6)
                 }
             case .running:
-                if isRun {
+                if alive {
                     missStreak[id] = 0                                        // still running
                 } else {
                     // Debounce: a single missed poll can be the launcher→game
