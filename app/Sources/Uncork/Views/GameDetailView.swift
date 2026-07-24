@@ -24,6 +24,7 @@ struct GameDetailView: View {
     @State private var dllOverrides = ""
     @State private var showAdvanced = false
     @State private var showComponents = false
+    @State private var showLog = false
     @State private var confirmRemove = false
     @State private var confirmUninstall = false
 
@@ -71,6 +72,7 @@ struct GameDetailView: View {
         .onChange(of: launchArgs) { _, v in UserOverrides.shared.setLaunchArgs(game.launchID, v) }
         .onChange(of: dllOverrides) { _, v in UserOverrides.shared.setDLLOverridesString(game.launchID, v) }
         .sheet(isPresented: $showComponents) { WinetricksSheet(game: game) }
+        .sheet(isPresented: $showLog) { LogView(game: game) }
     }
 
     // MARK: hero
@@ -317,6 +319,12 @@ struct GameDetailView: View {
 
     private var dangerZone: some View {
         VStack(spacing: 10) {
+            Button { showLog = true } label: {
+                Label("View launch log", systemImage: "doc.text.magnifyingglass")
+                    .font(.system(size: 12, weight: .semibold)).frame(maxWidth: .infinity).padding(.vertical, 8)
+            }
+            .buttonStyle(.plain).foregroundStyle(DS.accent).background(Capsule().fill(DS.accent.opacity(0.12)))
+            .help("See what happened on the last launch (the game's own output and Uncork's steps). Useful when a game won't start")
             if game.source == .steam {
                 Button { LaunchService.applyFixes(game) } label: {
                     Label("Apply fixes from database", systemImage: "wrench.and.screwdriver")

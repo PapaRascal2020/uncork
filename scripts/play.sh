@@ -21,7 +21,7 @@ require_wine
 
 # Live launch status the app streams to the Play button (so a slow first-launch
 # Steam sign-in shows progress instead of a silent, seemingly-stuck button).
-status() { printf '@@STATUS@@ %s\n' "$*"; }
+status() { printf '@@STATUS@@ %s\n' "$*"; _glog "[status] $*"; }
 status "Preparing to launch…"
 appid="${1:?usage: play.sh <steam-appid> [relative/exe/path]}"
 exe_arg="${2:-}"
@@ -122,6 +122,8 @@ except Exception:
 PY
 }
 
+game_log_init "Steam $installdir (appid $appid), exe ${GAME_EXE##*/}, backend $backend"
+
 drm_flag="$(compat_get "$appid" drm)"
 FORCE_APPLAUNCH=0
 if [[ "$drm_flag" == "true" ]] || { [[ "$drm_flag" != "false" ]] && is_steam_stub "$GAME_EXE"; }; then
@@ -187,7 +189,7 @@ if [[ "$backend" == "d3dmetal" ]] && gptk_available; then
     gptk_export_env
     [[ -n "$dllo" ]] && export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:+$WINEDLLOVERRIDES;}$dllo"
     export SteamAppId="$appid" SteamGameId="$appid"
-    exec "$GPTK_WINE" "$GAME_EXE" $(compat_launch_args "$appid")
+    exec "$GPTK_WINE" "$GAME_EXE" $(compat_launch_args "$appid") >>"$GAME_LOG" 2>&1
   ) &
   gpid=$!
   alive=1
@@ -314,7 +316,7 @@ game_exe_name="$(basename "$GAME_EXE")"
 applaunch_game() {
   env ${GAME_ENV[@]+"${GAME_ENV[@]}"} \
     WINEPREFIX="$BOTTLE" WINEDEBUG="${WINEDEBUG:--all}" MVK_CONFIG_LOG_LEVEL="${MVK_CONFIG_LOG_LEVEL:-1}" \
-    /usr/bin/arch -x86_64 "$WINE_BIN" "$STEAM_EXE" -applaunch "$appid" $launch_args >/dev/null 2>&1 &
+    /usr/bin/arch -x86_64 "$WINE_BIN" "$STEAM_EXE" -applaunch "$appid" $launch_args >>"$GAME_LOG" 2>&1 &
 }
 
 if [[ "$FORCE_APPLAUNCH" == "1" ]]; then
@@ -331,7 +333,7 @@ else
     cd "$GAME_DIR" 2>/dev/null || true
     env ${GAME_ENV[@]+"${GAME_ENV[@]}"} \
       WINEPREFIX="$BOTTLE" WINEDEBUG="${WINEDEBUG:--all}" MVK_CONFIG_LOG_LEVEL="${MVK_CONFIG_LOG_LEVEL:-1}" \
-      /usr/bin/arch -x86_64 "$WINE_BIN" "$GAME_EXE" $launch_args >/dev/null 2>&1
+      /usr/bin/arch -x86_64 "$WINE_BIN" "$GAME_EXE" $launch_args >>"$GAME_LOG" 2>&1
   ) &
   gpid=$!
 

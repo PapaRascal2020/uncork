@@ -156,9 +156,10 @@ if [[ "${1:-}" == "launch" ]] && gptk_available && [[ "${UNCORK_BACKEND:-d3dmeta
   gptk_export_env
   exe="$(cd "$gpath" 2>/dev/null && find . -maxdepth 2 -iname '*.exe' | grep -viE 'unins|redist|vcredist|dxsetup|dotnet|crashreport' | head -1)"
   if [[ -n "$exe" ]]; then
+    game_log_init "GOG ${gpath##*/} (id ${gid:-?}), exe ${exe##*/}, backend d3dmetal"
     status "Launching via D3DMetal…" 2>/dev/null || true
     log "Launching GOG game via D3DMetal (GPTk): $exe"
-    cd "$gpath"; exec "$GPTK_WINE" "$exe"
+    cd "$gpath"; exec "$GPTK_WINE" "$exe" >>"$GAME_LOG" 2>&1
   fi
   warn "Couldn't resolve a game exe under '$gpath'; falling back to gogdl launch."
 fi

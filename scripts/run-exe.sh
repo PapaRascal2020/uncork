@@ -31,9 +31,10 @@ if [[ -n "$ovid" && "$(compat_hud_on "$ovid")" == "1" ]]; then
   GAME_ENV+=("MTL_HUD_ENABLED=1"); log "Metal performance HUD: on"
 fi
 
+game_log_init "Custom ${exe##*/} in bottle '$BOTTLE_NAME' (DXMT/Metal)"
 log "Launching ${exe##*/} in bottle '$BOTTLE_NAME' (DXMT/Metal)…"
 cd "$(dirname "$exe")" 2>/dev/null || true   # so the game finds sibling DLLs
 env ${GAME_ENV[@]+"${GAME_ENV[@]}"} \
   WINEPREFIX="$BOTTLE" WINEDEBUG="${WINEDEBUG:--all}" MVK_CONFIG_LOG_LEVEL="${MVK_CONFIG_LOG_LEVEL:-1}" \
-  /usr/bin/arch -x86_64 "$WINE_BIN" "$exe" &
+  /usr/bin/arch -x86_64 "$WINE_BIN" "$exe" >>"$GAME_LOG" 2>&1 &
 ok "Launched ${exe##*/} (bottle: $BOTTLE_NAME)."

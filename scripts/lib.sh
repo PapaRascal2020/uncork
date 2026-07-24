@@ -137,11 +137,25 @@ apply_dxvk_to_game() {
 }
 
 # --- Logging -----------------------------------------------------------------
+# Per-game launch log. The app sets UNCORK_GAME_LOG to a per-game file so a launch
+# leaves a diagnosable trail; unset (a manual run) it is /dev/null, i.e. unchanged.
+# The launch scripts redirect the GAME process's own output here, and the helpers
+# below mirror their narration here too, so there is a useful record even when Wine
+# itself is quiet (WINEDEBUG=-all).
+GAME_LOG="${UNCORK_GAME_LOG:-/dev/null}"
+_glog() { [[ -n "${UNCORK_GAME_LOG:-}" ]] || return 0; printf '%s\n' "$*" >> "$UNCORK_GAME_LOG" 2>/dev/null || true; }
+# Start a fresh log with a header (called once at the top of a launch).
+game_log_init() {  # <header line>
+  [[ -n "${UNCORK_GAME_LOG:-}" ]] || return 0
+  mkdir -p "$(dirname "$UNCORK_GAME_LOG")" 2>/dev/null || true
+  { printf '==== Uncork launch %s ====\n%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"; } > "$UNCORK_GAME_LOG" 2>/dev/null || true
+}
+
 c_blue=$'\033[34m'; c_green=$'\033[32m'; c_yellow=$'\033[33m'; c_red=$'\033[31m'; c_off=$'\033[0m'
-log()  { printf '%s==>%s %s\n' "$c_blue"  "$c_off" "$*"; }
-ok()   { printf '%s✓%s %s\n'  "$c_green" "$c_off" "$*"; }
-warn() { printf '%s!%s %s\n'  "$c_yellow" "$c_off" "$*" >&2; }
-die()  { printf '%s✗%s %s\n'  "$c_red"   "$c_off" "$*" >&2; exit 1; }
+log()  { printf '%s==>%s %s\n' "$c_blue"  "$c_off" "$*"; _glog "==> $*"; }
+ok()   { printf '%s✓%s %s\n'  "$c_green" "$c_off" "$*"; _glog "[ok] $*"; }
+warn() { printf '%s!%s %s\n'  "$c_yellow" "$c_off" "$*" >&2; _glog "[warn] $*"; }
+die()  { printf '%s✗%s %s\n'  "$c_red"   "$c_off" "$*" >&2; _glog "[error] $*"; exit 1; }
 
 # --- Download with progress --------------------------------------------------
 # Download $1 -> $2, emitting real byte-progress as "@@STEP@@ <pct> <label>" lines

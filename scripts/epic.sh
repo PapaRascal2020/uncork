@@ -85,10 +85,11 @@ if [[ "${1:-}" == "launch" ]] && gptk_available && [[ "${UNCORK_BACKEND:-d3dmeta
   [[ -n "$ipath" && -f "$ipath/$iexe" ]] || die "Epic game '$app' isn't installed (no exe under install_path)."
   ensure_gptk_prefix epic
   gptk_export_env
+  game_log_init "Epic $app, exe $iexe, backend d3dmetal"
   status "Launching via D3DMetal…" 2>/dev/null || true
   log "Launching '$app' via D3DMetal (GPTk): $iexe"
   cd "$ipath"
-  exec "$GPTK_WINE" "$iexe"
+  exec "$GPTK_WINE" "$iexe" >>"$GAME_LOG" 2>&1
 fi
 
 # Commands that actually run Wine need the Epic bottle to exist + be DXMT-ready.

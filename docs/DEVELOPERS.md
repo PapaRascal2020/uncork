@@ -207,6 +207,21 @@ the payload (engine/tools) and the data dir (bottles). Scripts stream progress:
 - `@@STATUS@@ <msg>`: live launch status to the Play button.
 - `FOUND_EXE=<path>`: a custom-store install reports the launcher exe it found.
 
+### Launch logs
+
+Each launch writes a per-game log the user (and you) can inspect when a game
+misbehaves. The app passes `UNCORK_GAME_LOG=<data>/logs/<id>.log` in the launch
+env; `lib.sh` sets `GAME_LOG` to it (or `/dev/null` when unset, so a manual run is
+unchanged) and the `log`/`ok`/`warn`/`die` helpers mirror their narration there.
+The launch scripts (`play.sh`, `epic.sh`, `gog.sh`, `run-exe.sh`) call
+`game_log_init` for a header, then redirect the **game process's own** stdout/stderr
+to `$GAME_LOG`, so the file captures both Uncork's steps (backend, DRM detection,
+fallbacks, warnings) and the game's own output (e.g. a game's "no valid graphics
+device" message). `GameLog` (app) resolves the path and `LogView` shows it on the
+game page (copy / reveal / refresh). Note the default launch keeps `WINEDEBUG=-all`,
+so Wine's internal channels are quiet: the log is the game's output plus Uncork's
+narration, not a full Wine trace.
+
 On quit, Uncork sends the prewarmed Steam client a clean `-shutdown` **off the
 main thread**, hides its window, and shows a small "Closing" HUD, so app-quit is
 a deliberate step, not a frozen window.

@@ -8,18 +8,21 @@ enum LaunchService {
     /// Steam → play.sh (Steam hidden, launched via -applaunch); Epic → legendary
     /// (epic.sh); custom → run-exe.sh in the game's own bottle.
     static func launchProcess(for game: InstalledGame) -> Process? {
+        // Every launch writes to a per-game log the scripts read from UNCORK_GAME_LOG.
+        let logEnv = ["UNCORK_GAME_LOG": GameLog.path(for: game)]
         switch game.source {
-        case .steam: return process("play.sh", [game.launchID])
-        case .epic:  return process("epic.sh", ["launch", game.launchID, "--skip-version-check"])
+        case .steam: return process("play.sh", [game.launchID], env: logEnv)
+        case .epic:  return process("epic.sh", ["launch", game.launchID, "--skip-version-check"], env: logEnv)
         case .gog:
             // gog.sh launch <install_path> <id>: direct-launches the exe on D3DMetal.
             let path = Paths.data + "/bottles/gog/drive_c/GOG Games/" + game.installDir
-            return process("gog.sh", ["launch", path, game.launchID])
+            return process("gog.sh", ["launch", path, game.launchID], env: logEnv)
         case .custom:
             guard let exe = game.exePath else { return nil }
             // Native Mac game → run the .app directly (no Wine, no bottle).
-            if game.hasMac { return process("run-mac.sh", [exe, game.launchID]) }
-            return process("run-exe.sh", [exe, game.launchID], env: ["BOTTLE_NAME": game.bottle ?? "steam"])
+            if game.hasMac { return process("run-mac.sh", [exe, game.launchID], env: logEnv) }
+            return process("run-exe.sh", [exe, game.launchID],
+                           env: logEnv.merging(["BOTTLE_NAME": game.bottle ?? "steam"]) { _, b in b })
         }
     }
 
