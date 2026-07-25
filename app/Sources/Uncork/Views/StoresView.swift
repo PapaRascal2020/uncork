@@ -532,7 +532,7 @@ struct SteamSetupSheet: View {
                 Spacer()
             }
         }
-        .padding(22).frame(width: 480, height: 380)
+        .padding(22).frame(width: 480, height: 430)
         .confirmationDialog("Reprovision Steam from scratch?",
                             isPresented: $confirmReprovision, titleVisibility: .visible) {
             Button("Reprovision", role: .destructive) {
@@ -548,27 +548,13 @@ struct SteamSetupSheet: View {
         }
     }
 
-    // Self-service Steam fixes on the sign-in sheet, so a user never touches a
-    // terminal. Each is a bottle-scoped repair run with live progress:
-    //   - update patch: for a client stuck on "Updating Steam" (restore a local
-    //     snapshot if present + disable the broken self-update).
-    //   - CEF fix: for a black login window after a self-update (restart Steam
-    //     with -cef-disable-gpu).
+    // The real fixes (stage client from Valve, single-process CEF shim, freeze) now
+    // run automatically during setup, so they need no buttons. All that's left on the
+    // sign-in sheet is one low-key recovery action: a full clean-slate reinstall for
+    // the rare case setup left Steam broken (confirmation-gated).
     @ViewBuilder private var steamTroubleshooting: some View {
-        Divider().padding(.vertical, 2)
-        fixRow(key: "steam-stage", script: "steam-stage-client.sh",
-               prompt: "Stuck updating, or login blank?", button: "Finish Steam setup",
-               label: "Completing the Steam client from Valve…")
-        fixRow(key: "steam-cef", script: "steam-cef-fix.sh",
-               prompt: "Login still black?", button: "Reapply CEF fix",
-               label: "Reapplying the Steam CEF fix…")
-        reprovisionRow
-    }
-
-    // Destructive "start over": wipe the Steam client and reinstall it from Valve
-    // (keeps games + logins). Behind a confirmation so it can't be hit by accident.
-    @ViewBuilder private var reprovisionRow: some View {
         let fix = installer.status("steam-reprovision")
+        Divider().padding(.vertical, 2)
         if fix.phase == .installing {
             VStack(alignment: .leading, spacing: 4) {
                 ProgressView(value: fix.fraction)
@@ -576,35 +562,9 @@ struct SteamSetupSheet: View {
             }
         } else {
             HStack(spacing: 8) {
-                Text("Still broken?").font(.system(size: 11)).foregroundStyle(.secondary)
-                Button("Reprovision Steam") { confirmReprovision = true }
-                    .font(.system(size: 11, weight: .semibold)).buttonStyle(.link).foregroundStyle(.orange)
-                if fix.phase == .done {
-                    Label("done", systemImage: "checkmark.circle.fill")
-                        .font(.system(size: 11)).foregroundStyle(.green).labelStyle(.titleAndIcon)
-                } else if fix.phase == .failed {
-                    Text(fix.message).font(.system(size: 11)).foregroundStyle(.orange)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder private func fixRow(key: String, script: String,
-                                     prompt: String, button: String, label: String) -> some View {
-        let fix = installer.status(key)
-        if fix.phase == .installing {
-            VStack(alignment: .leading, spacing: 4) {
-                ProgressView(value: fix.fraction)
-                Text(fix.message).font(.system(size: 11)).foregroundStyle(.secondary)
-            }
-        } else {
-            HStack(spacing: 8) {
-                Text(prompt).font(.system(size: 11)).foregroundStyle(.secondary)
-                Button(button) {
-                    StoreInstaller.shared.applyFix(key: key, script: script,
-                                                   bottle: "steam", label: label)
-                }
-                .font(.system(size: 11, weight: .semibold)).buttonStyle(.link)
+                Text("Trouble with Steam?").font(.system(size: 11)).foregroundStyle(.secondary)
+                Button("Reset & reinstall") { confirmReprovision = true }
+                    .font(.system(size: 11, weight: .semibold)).buttonStyle(.link)
                 if fix.phase == .done {
                     Label("done", systemImage: "checkmark.circle.fill")
                         .font(.system(size: 11)).foregroundStyle(.green).labelStyle(.titleAndIcon)

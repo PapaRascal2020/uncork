@@ -72,7 +72,7 @@ final class StoreInstaller: ObservableObject {
         }
     }
 
-    /// Run a bottle repair/patch script (e.g. steam-fix-updates.sh) with the same
+    /// Run a bottle repair/patch script (e.g. steam-reprovision.sh) with the same
     /// live `@@STEP@@` progress as an install, tracked under its own key so it does
     /// not collide with the store's install status. Bottle-scoped via BOTTLE_NAME.
     func applyFix(key: String, script: String, bottle: String, label: String, extraEnv: [String: String] = [:]) {
