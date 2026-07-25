@@ -51,8 +51,10 @@ log "Launching Steam in bottle: $BOTTLE_NAME  ${*:+(args: $*)}"
 # WINEMSYNC=0: Steam's self-update downloader deadlocks under Wine's msync, so the
 # client loops on "Updating Steam" (manifest downloads, packages never do). Disable
 # msync/esync for the client; games use their own launch path and keep their sync.
+# -noverifyfiles: stop Steam's bootstrapper reverting our steamwebhelper CEF shim
+# (the single-process rendering fix). The shim itself is also set immutable.
 if [[ "$*" == *"-shutdown"* ]]; then
   WINEMSYNC=0 WINEESYNC=0 wine_run "$STEAM_EXE" "$@"
 else
-  WINEMSYNC=0 WINEESYNC=0 wine_run "$STEAM_EXE" -cef-disable-gpu "$@"
+  WINEMSYNC=0 WINEESYNC=0 wine_run "$STEAM_EXE" -cef-disable-gpu -noverifyfiles "$@"
 fi

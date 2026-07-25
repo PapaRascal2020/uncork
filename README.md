@@ -185,7 +185,9 @@ Uncork stands on a lot of open-source work: [Wine](https://www.winehq.org/) and 
 [Gcenx](https://github.com/Gcenx) macOS builds, [DXMT](https://github.com/3Shain/dxmt),
 [DXVK](https://github.com/doitsujin/dxvk), [MoltenVK](https://github.com/KhronosGroup/MoltenVK),
 and the [legendary](https://github.com/derrod/legendary) and
-[gogdl](https://github.com/Heroic-Games-Launcher/heroic-gogdl) clients. Special thanks
+[gogdl](https://github.com/Heroic-Games-Launcher/heroic-gogdl) clients. The Steam
+single-process CEF rendering fix follows the technique from
+[Steam-Win-Silicon](https://github.com/wisnuub/Steam-Win-Silicon). Special thanks
 to **CodeWeavers**, whose CrossOver work funds most of upstream Wine. Fixes we make go
 back upstream wherever we can (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 

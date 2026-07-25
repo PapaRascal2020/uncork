@@ -122,6 +122,14 @@ else
   install_from_official_installer
 fi
 
+# --- Steam UI rendering fix (single-process CEF shim) -----------------------
+# Steam's CEF UI renders black on some Apple Silicon machines (Wine's multi-process
+# CEF frame delivery fails). Install our shim once the client's CEF runtime exists.
+if [[ -d "$STEAM_ROOT/bin/cef" ]]; then
+  bash "$(dirname "${BASH_SOURCE[0]}")/steam-cef-shim.sh" \
+    || warn "Couldn't install the CEF rendering fix now; use 'Reapply CEF fix' on the sign-in screen."
+fi
+
 # --- Steam-client prerequisites into the client bottle (data-driven) --------
 prereqs=()
 while IFS= read -r v; do [[ -n "$v" ]] && prereqs+=("$v"); done < <(store_prereqs steam)

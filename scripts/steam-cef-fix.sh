@@ -24,6 +24,10 @@ step 25 "Stopping Steam…"
 WINEPREFIX="$BOTTLE" "$WINE_HOME/bin/wineserver" -k 2>/dev/null || true
 sleep 1
 
+# Install the single-process CEF shim (the actual black-window fix), then relaunch.
+bash "$(dirname "${BASH_SOURCE[0]}")/steam-cef-shim.sh" \
+  || warn "Couldn't install the CEF shim (is Steam fully installed?)."
+
 step 65 "Relaunching Steam with the CEF fix…"
 # Relaunch through steam.sh (applies -cef-disable-gpu + WINEMSYNC=0), detached so
 # this script returns while Steam keeps running.

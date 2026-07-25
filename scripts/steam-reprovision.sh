@@ -49,6 +49,7 @@ fi
 # Wipe the client but keep games + logins.
 if [[ -d "$STEAM_ROOT" ]]; then
   step 25 "Wiping the Steam client (keeping games + logins)…"
+  chflags -R nouchg "$STEAM_ROOT" 2>/dev/null || true   # clear our immutable CEF shim so rm works
   keepdir="$BOTTLE/.uncork-steam-keep"
   rm -rf "$keepdir"; mkdir -p "$keepdir"
   for k in steamapps userdata config; do
