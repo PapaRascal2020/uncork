@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# steam-cef-shim.sh - install Uncork's steamwebhelper CEF shim into the Steam bottle.
+# steam-cef-shim.sh - install the steamwebhelper CEF wrapper into the Steam bottle.
 #
-# WHY: Steam's CEF UI renders black on some Apple Silicon machines because Wine's
-# multi-process CEF frame delivery (cross-process client_surface_present) fails. The
-# shim forces CEF into a single process with the GPU disabled, which sidesteps it.
-# It replaces steamwebhelper.exe with our shim (which launches the backed-up real
-# client with --single-process --disable-gpu). Technique credit: Steam-Win-Silicon.
+# WHY: Steam's CEF UI renders black on Apple Silicon because Wine's multi-process CEF
+# GPU/compositor path can't present to winemac's surface, and its out-of-process
+# NetworkService also breaks the login TLS handshake. The wrapper replaces
+# steamwebhelper.exe and relaunches the backed-up real client with
+# --disable-gpu --single-process, which fixes BOTH the black window and sign-in.
+# We install the proven wrapper (scripts/wrapper/steamwebhelper-wrapper.c, adapted
+# from notpop/steam-on-m1-wine, MIT) that is verified to render AND log in.
 #
 # Bottle-scoped. Idempotent. The launch must add -noverifyfiles (steam.sh does) so
-# Steam does not revert the shim; we also set the immutable flag as a second guard.
+# Steam does not revert the wrapper; we also set the immutable flag as a second guard.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 step() { printf '@@STEP@@ %s %s\n' "$1" "$2"; }
@@ -16,12 +18,12 @@ step() { printf '@@STEP@@ %s %s\n' "$1" "$2"; }
 BOTTLE_NAME="steam"
 BOTTLE="$BOTTLES_DIR/$BOTTLE_NAME"
 CEF_ROOT="$BOTTLE/drive_c/Program Files (x86)/Steam/bin/cef"
-SHIM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/shims"
-SHIM64="$SHIM_DIR/steamwebhelper-shim-64.exe"
-SHIM32="$SHIM_DIR/steamwebhelper-shim-32.exe"
+SHIM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/wrapper"
+SHIM64="$SHIM_DIR/steamwebhelper-wrapper-64.exe"
+SHIM32="$SHIM_DIR/steamwebhelper-wrapper-32.exe"
 
 [[ -d "$CEF_ROOT" ]] || die "Steam's CEF runtime isn't present yet (install/complete Steam first)."
-[[ -f "$SHIM64" ]] || die "Shim binary missing: $SHIM64 (build with scripts/shims/steamwebhelper-shim.c)."
+[[ -f "$SHIM64" ]] || die "Wrapper binary missing: $SHIM64 (build from scripts/wrapper/steamwebhelper-wrapper.c)."
 
 # Install the arch-appropriate shim into one cef variant dir.
 install_one() {  # <cef-dir> <shim>
