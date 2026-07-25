@@ -60,9 +60,13 @@ log "Launching Steam in bottle: $BOTTLE_NAME  ${*:+(args: $*)}"
 #   winemenubuilder.exe=d  don't hijack file associations / spawn menu builder
 #   dcomp=n            DirectComposition native (CEF present path is steadier)
 STEAM_OVERRIDES="steamservice=d;winemenubuilder.exe=d;dxgi=b;d3d11=b;d3d10core=b;dcomp=n"
+# Run with sync ON (like games). We only forced sync OFF earlier to get the in-Wine
+# update download through; the client is frozen now (no self-update), and forcing
+# sync off starves steamwebhelper's network/auth threads and hangs sign-in. Sync on
+# matches the working Steam-Win-Silicon config.
 if [[ "$*" == *"-shutdown"* ]]; then
-  WINEMSYNC=0 WINEESYNC=0 wine_run "$STEAM_EXE" "$@"
+  WINEMSYNC=1 WINEESYNC=1 wine_run "$STEAM_EXE" "$@"
 else
-  WINEMSYNC=0 WINEESYNC=0 WINEDLLOVERRIDES="$STEAM_OVERRIDES" \
+  WINEMSYNC=1 WINEESYNC=1 WINEDLLOVERRIDES="$STEAM_OVERRIDES" \
     wine_run "$STEAM_EXE" -cef-disable-gpu -noverifyfiles -no-cef-sandbox -forcedesktopscaling 1 "$@"
 fi

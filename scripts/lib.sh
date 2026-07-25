@@ -400,12 +400,12 @@ steam_ensure_running() {
       # rendering (-cef-disable-gpu): the GPU compositor crash-loops steamwebhelper
       # under Wine and takes steam.exe down with it.
       STEAM_BOTTLE="$BOTTLE" bash "$(dirname "${BASH_SOURCE[0]}")/steam-tame.sh" >/dev/null 2>&1 || true
-      # WINEMSYNC=0: Steam's multi-threaded self-update downloader deadlocks under
-      # Wine's msync (Mach semaphores). The manifest downloads, but the package
-      # (.zip.vz) fetches hang and the client restart-loops on "Updating Steam".
-      # Disabling msync for the CLIENT lets the update finish. Games launch via
-      # their own path (GPTk) and keep their sync settings, so this is client-only.
-      WINEMSYNC=0 WINEESYNC=0 WINEDLLOVERRIDES="steamservice=d;winemenubuilder.exe=d;dxgi=b;d3d11=b;d3d10core=b;dcomp=n" \
+      # Sync ON (like games). The client is frozen (self-update suppressed), so we no
+      # longer disable sync for the update-download deadlock; forcing it off starves
+      # steamwebhelper's network/auth threads and hangs sign-in. Matches the working
+      # Steam-Win-Silicon config. Software CEF (-cef-disable-gpu) + the single-process
+      # shim keep the UI rendering; -no-cef-sandbox + steamservice=d keep it stable.
+      WINEMSYNC=1 WINEESYNC=1 WINEDLLOVERRIDES="steamservice=d;winemenubuilder.exe=d;dxgi=b;d3d11=b;d3d10core=b;dcomp=n" \
         wine_run "$steam_exe" -silent -no-browser -cef-disable-gpu -noverifyfiles -no-cef-sandbox -forcedesktopscaling 1 >/dev/null 2>&1 &
     fi
     for _ in $(seq 1 30); do steam_is_up && break; sleep 1; done
