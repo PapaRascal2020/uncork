@@ -51,10 +51,18 @@ log "Launching Steam in bottle: $BOTTLE_NAME  ${*:+(args: $*)}"
 # WINEMSYNC=0: Steam's self-update downloader deadlocks under Wine's msync, so the
 # client loops on "Updating Steam" (manifest downloads, packages never do). Disable
 # msync/esync for the client; games use their own launch path and keep their sync.
-# -noverifyfiles: stop Steam's bootstrapper reverting our steamwebhelper CEF shim
-# (the single-process rendering fix). The shim itself is also set immutable.
+# Stability recipe for the Steam client under Wine on Apple Silicon (from
+# Steam-Win-Silicon), applied in full, not piecemeal:
+#   -noverifyfiles     stop the bootstrapper reverting our CEF shim (also immutable)
+#   -no-cef-sandbox    the CEF sandbox crashes under Wine
+#   -forcedesktopscaling 1  avoid HiDPI scaling glitches
+#   steamservice=d     disable steamservice.dll (flaky under Wine, can crash the client)
+#   winemenubuilder.exe=d  don't hijack file associations / spawn menu builder
+#   dcomp=n            DirectComposition native (CEF present path is steadier)
+STEAM_OVERRIDES="steamservice=d;winemenubuilder.exe=d;dxgi=b;d3d11=b;d3d10core=b;dcomp=n"
 if [[ "$*" == *"-shutdown"* ]]; then
   WINEMSYNC=0 WINEESYNC=0 wine_run "$STEAM_EXE" "$@"
 else
-  WINEMSYNC=0 WINEESYNC=0 wine_run "$STEAM_EXE" -cef-disable-gpu -noverifyfiles "$@"
+  WINEMSYNC=0 WINEESYNC=0 WINEDLLOVERRIDES="$STEAM_OVERRIDES" \
+    wine_run "$STEAM_EXE" -cef-disable-gpu -noverifyfiles -no-cef-sandbox -forcedesktopscaling 1 "$@"
 fi

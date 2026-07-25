@@ -405,7 +405,8 @@ steam_ensure_running() {
       # (.zip.vz) fetches hang and the client restart-loops on "Updating Steam".
       # Disabling msync for the CLIENT lets the update finish. Games launch via
       # their own path (GPTk) and keep their sync settings, so this is client-only.
-      WINEMSYNC=0 WINEESYNC=0 wine_run "$steam_exe" -silent -no-browser -cef-disable-gpu -noverifyfiles >/dev/null 2>&1 &
+      WINEMSYNC=0 WINEESYNC=0 WINEDLLOVERRIDES="steamservice=d;winemenubuilder.exe=d;dxgi=b;d3d11=b;d3d10core=b;dcomp=n" \
+        wine_run "$steam_exe" -silent -no-browser -cef-disable-gpu -noverifyfiles -no-cef-sandbox -forcedesktopscaling 1 >/dev/null 2>&1 &
     fi
     for _ in $(seq 1 30); do steam_is_up && break; sleep 1; done
     rmdir "$lock" 2>/dev/null || true
