@@ -527,20 +527,32 @@ struct SteamSetupSheet: View {
                 }
                 Text("Didn't work? Make sure Rosetta is installed (see Setup). If the Steam window never appeared, quit any running Steam and try “Open Steam” again.")
                     .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                steamUpdateFix
+                steamTroubleshooting
                 Spacer()
             }
         }
         .padding(22).frame(width: 480, height: 380)
     }
 
-    // Self-service fix for the "Updating Steam" window that opens, never downloads,
-    // then closes (Steam's online self-update failing under Wine). Applies the
-    // known-good repair to the Steam bottle: restore a local client snapshot if one
-    // is present and disable the broken self-update. Bottle-scoped only.
-    @ViewBuilder private var steamUpdateFix: some View {
-        let fix = installer.status("steam-fix")
+    // Self-service Steam fixes on the sign-in sheet, so a user never touches a
+    // terminal. Each is a bottle-scoped repair run with live progress:
+    //   - update patch: for a client stuck on "Updating Steam" (restore a local
+    //     snapshot if present + disable the broken self-update).
+    //   - CEF fix: for a black login window after a self-update (restart Steam
+    //     with -cef-disable-gpu).
+    @ViewBuilder private var steamTroubleshooting: some View {
         Divider().padding(.vertical, 2)
+        fixRow(key: "steam-fix", script: "steam-fix-updates.sh",
+               prompt: "Stuck on “Updating Steam”?", button: "Apply patch",
+               label: "Applying the Steam update patch…")
+        fixRow(key: "steam-cef", script: "steam-cef-fix.sh",
+               prompt: "Login window black?", button: "Reapply CEF fix",
+               label: "Reapplying the Steam CEF fix…")
+    }
+
+    @ViewBuilder private func fixRow(key: String, script: String,
+                                     prompt: String, button: String, label: String) -> some View {
+        let fix = installer.status(key)
         if fix.phase == .installing {
             VStack(alignment: .leading, spacing: 4) {
                 ProgressView(value: fix.fraction)
@@ -548,17 +560,14 @@ struct SteamSetupSheet: View {
             }
         } else {
             HStack(spacing: 8) {
-                Text("Getting stuck on “Updating Steam”?")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
-                Button("Apply patch") {
-                    StoreInstaller.shared.applyFix(key: "steam-fix",
-                                                   script: "steam-fix-updates.sh",
-                                                   bottle: "steam",
-                                                   label: "Applying Steam patch…")
+                Text(prompt).font(.system(size: 11)).foregroundStyle(.secondary)
+                Button(button) {
+                    StoreInstaller.shared.applyFix(key: key, script: script,
+                                                   bottle: "steam", label: label)
                 }
                 .font(.system(size: 11, weight: .semibold)).buttonStyle(.link)
                 if fix.phase == .done {
-                    Label("applied", systemImage: "checkmark.circle.fill")
+                    Label("done", systemImage: "checkmark.circle.fill")
                         .font(.system(size: 11)).foregroundStyle(.green).labelStyle(.titleAndIcon)
                 } else if fix.phase == .failed {
                     Text(fix.message).font(.system(size: 11)).foregroundStyle(.orange)
