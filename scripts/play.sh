@@ -102,7 +102,7 @@ log "Compatibility profile: $(compat_profile "$appid" | sed 's/^$/auto/') → ba
 # marker Steamless uses). This is SteamStub-specific, so games that merely use the
 # Steamworks API (most of them) are unaffected and keep their normal backend.
 is_steam_stub() {  # <exe>  -> exit 0 if the PE carries a .bind (SteamStub) section
-  python3 - "$1" <<'PY' 2>/dev/null
+  py - "$1" <<'PY' 2>/dev/null
 import sys, struct
 try:
     f = open(sys.argv[1], "rb"); head = f.read(0x400)

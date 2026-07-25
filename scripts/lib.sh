@@ -44,6 +44,37 @@ WINE_STABLE_ASSET_URL="${WINE_STABLE_ASSET_URL:-https://github.com/PapaRascal202
 # Writable per-user data root (bottles + downloaded engines live here; the payload
 # engine dir is read-only in a shipped .app).
 UNCORK_DATA_DIR="${UNCORK_DATA:-$HOME/Library/Application Support/Uncork}"
+
+# Python for the bundled Epic/GOG clients and our small JSON helpers. Uncork does
+# NOT require the Xcode Command Line Tools: a relocatable Python is fetched on
+# demand (ensure-python.sh), like the Wine engine. Resolution order: an explicit
+# override, a bundled interpreter (payload), the fetched per-user one, then a
+# system python3 if the user happens to have one.
+_resolve_python() {
+  local c
+  for c in "${UNCORK_PYTHON:-}" \
+           "$ENGINE_DIR/python/bin/python3" \
+           "$UNCORK_DATA_DIR/engine/python/bin/python3" \
+           "/usr/bin/python3"; do
+    [[ -n "$c" && -x "$c" ]] && { printf '%s' "$c"; return 0; }
+  done
+  return 1
+}
+UNCORK_PYTHON="$(_resolve_python || true)"
+
+# Run Python without caring where it came from. Non-fatal callers (JSON helpers)
+# use this; it falls back to a system python3 so a lookup never hard-fails here.
+py() { "${UNCORK_PYTHON:-/usr/bin/python3}" "$@"; }
+
+# Ensure a usable Python exists, fetching the relocatable build if needed. Sets
+# UNCORK_PYTHON. Call this in first-run-capable paths before running the clients.
+require_python() {
+  UNCORK_PYTHON="$(_resolve_python || true)"
+  [[ -n "$UNCORK_PYTHON" ]] && return 0
+  bash "$PROJECT_ROOT/scripts/ensure-python.sh" >&2 || true
+  UNCORK_PYTHON="$(_resolve_python || true)"
+  [[ -n "$UNCORK_PYTHON" ]] || die "Python could not be provisioned. See scripts/ensure-python.sh."
+}
 # Prefer a bundled wine-stable (payload); if it's absent (a slim build), fall back
 # to the per-user engine dir so 01-create-bottle.sh DOWNLOADS it there (from the
 # public Gcenx WINE_URL) instead of failing to write into the read-only payload.
@@ -209,9 +240,36 @@ require_arm64() {
 }
 
 require_rosetta() {
-  if ! /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; then
-    die "Rosetta 2 not installed. Run: softwareupdate --install-rosetta --agree-to-license"
+  /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null && return 0
+  # Not present: install it for the user (one-time). On a personal Mac this needs
+  # no admin; on a policy-managed Mac it can be blocked, which we report honestly
+  # rather than leaving the user at a dead end.
+  printf '@@STEP@@ %s %s\n' 2 "Installing Rosetta 2 (one-time)…"
+  log "Rosetta 2 not present; installing (one-time)…"
+  softwareupdate --install-rosetta --agree-to-license >/dev/null 2>&1 || true
+  if /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; then
+    ok "Rosetta 2 installed."
+    return 0
   fi
+  die "Rosetta 2 is required and could not be installed automatically. Install it with: softwareupdate --install-rosetta --agree-to-license"
+}
+
+# First-run preflight: fail early with a clear reason instead of deep in a download.
+# Free disk space (GB) at the data dir; do not block if it cannot be determined.
+preflight_disk() {  # [min-gb]
+  local need="${1:-8}" path free
+  path="${UNCORK_DATA:-$HOME/Library/Application Support}"
+  free="$(df -g "$path" 2>/dev/null | awk 'NR==2 {print $4}')"
+  [[ -n "$free" && "$free" -lt "$need" ]] \
+    && die "Not enough free disk space: ${free} GB free, about ${need} GB needed. Free up space and retry."
+  return 0
+}
+
+# Reachability: the first run has to download the engine, so a clear offline
+# message beats a confusing curl failure later.
+preflight_network() {
+  curl -sI --max-time 8 https://github.com >/dev/null 2>&1 && return 0
+  die "No internet connection. Uncork needs to download its engine on first run. Connect and retry."
 }
 
 require_wine() {

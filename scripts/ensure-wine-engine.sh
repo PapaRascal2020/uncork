@@ -33,6 +33,9 @@ case "$ID" in
     fi
     dest="$UNCORK_DATA_DIR/engine/wine-stable"
     tb="$CACHE/wine-stable.tar.gz"
+    # First-run download: fail fast and clearly if offline or low on disk.
+    preflight_network
+    preflight_disk 8
     # Real byte-progress (scaled into 5..65) so a launch-time self-heal shows a
     # moving percentage on the Play button rather than looking stalled while ~400 MB
     # downloads. download_progress emits @@STEP@@ lines the app renders.
@@ -54,6 +57,8 @@ case "$ID" in
     [[ -n "$WINE_CEF_URL" ]] || die "wine-cef is not bundled and WINE_CEF_URL is not set."
     dest="$UNCORK_DATA_DIR/engine/wine-cef"
     step 5 "Downloading Wine (CEF)…"
+    preflight_network
+    preflight_disk 3
     tb="$CACHE/wine-cef.tar.gz"
     curl -L --fail --progress-bar "$WINE_CEF_URL" -o "$tb" \
       || die "Couldn't download wine-cef from $WINE_CEF_URL (host the tarball on the release to enable CEF launchers on slim builds)."

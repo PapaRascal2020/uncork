@@ -101,6 +101,28 @@ Detailed architecture is in `docs/DEVELOPERS.md`.
 - You do not need to commit engines or other large binaries; they are downloaded
   on demand and are gitignored.
 
+## Giving back to upstream
+
+Uncork is built on other people's open-source work, and we treat contributing back
+as part of the job, not an afterthought. When a fix we make belongs upstream, it
+goes upstream:
+
+- **Wine fixes** (anything in `wine-fixes/patches/`) are prepared as WineHQ patches
+  and submitted to the Wine project, so they are not carried as a private fork
+  forever. The patch catalog in `wine-fixes/` tracks upstream status.
+- **DXMT** fixes and findings go to https://github.com/3Shain/dxmt.
+- **CrossOver / CodeWeavers**: our CEF engine builds on CrossOver's Wine, which
+  CodeWeavers releases under the LGPL and largely funds. We comply with the LGPL
+  (corresponding source plus `THIRD-PARTY-NOTICES.md`), send Wine-level fixes
+  upstream where CrossOver can benefit, and credit CodeWeavers openly. We do not want
+  a one-way relationship: if Uncork is useful to you, please consider buying
+  CrossOver to support the people who keep Wine on Mac alive.
+- **Everything custom we build** (for example the 32-bit DXMT work) is published so
+  the wider Mac-gaming community can use it.
+
+If a change you send touches one of these components, note in the PR whether it
+should also go upstream, and we will help route it.
+
 ## Code and comment style
 
 Committed files are public, so keep code and comments neutral, concise, and

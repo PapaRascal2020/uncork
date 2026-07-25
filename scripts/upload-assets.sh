@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# upload-assets.sh - package + upload the two large runtime assets Uncork fetches
-# on demand, so slim builds and fresh Steam installs work end to end. Mirrors the
-# URLs already wired in the code:
+# upload-assets.sh - package + upload the large runtime engines Uncork fetches on
+# demand, so slim builds work end to end. Mirrors the URLs already wired in code:
 #   wine-stable -> WINE_STABLE_ASSET_URL  (lib.sh)            release tag: wine-stable
 #   wine-cef  -> WINE_CEF_URL            (lib.sh)            release tag: wine-cef
-#   steam     -> STEAM_CLIENT_SNAPSHOT_URL (setup-steam.sh)  release tag: steam-client
+#
+# NOTE: we deliberately do NOT publish a Steam client asset. Redistributing Valve's
+# client binaries is not permitted by the Steam Subscriber Agreement, so Uncork
+# installs Steam from Valve's official installer on the user's machine instead (see
+# setup-steam.sh). Do not add a Steam packer here.
 #
 # Requirements: the GitHub CLI `gh`, authenticated with write access to the repo
 # (default PapaRascal2020/uncork). Install: `brew install gh` then `gh auth login`.
@@ -13,7 +16,6 @@
 #   scripts/upload-assets.sh all          # all assets
 #   scripts/upload-assets.sh wine-stable  # just the DXMT wine-stable engine
 #   scripts/upload-assets.sh wine-cef     # just wine-cef
-#   scripts/upload-assets.sh steam        # just the Steam client snapshot
 #
 # Override the repo with UNCORK_REPO=owner/name.
 set -euo pipefail
@@ -61,22 +63,10 @@ pack_wine_cef() {
   publish "wine-cef" "Uncork wine-cef" "$out"
 }
 
-pack_steam() {
-  local snap="$DATA/engine/steam-client-snapshot"
-  [[ -d "$snap/package" ]] || { echo "!! Steam snapshot not found at $snap (with package/)." >&2; return 1; }
-  local out="$STAGE/steam-client-snapshot.tar.gz"
-  echo "==> Packing the Steam client snapshot (~2 GB, this takes a while)…"
-  # setup-steam.sh extracts in the PARENT and expects a top-level
-  # steam-client-snapshot/ dir, so pack it by name from its parent.
-  tar -czf "$out" -C "$(dirname "$snap")" "$(basename "$snap")"
-  publish "steam-client" "Uncork Steam client snapshot" "$out"
-}
-
 case "$WHAT" in
   wine-stable) pack_wine_stable ;;
   wine-cef) pack_wine_cef ;;
-  steam)    pack_steam ;;
-  all)      pack_wine_stable; pack_wine_cef; pack_steam ;;
-  *) echo "usage: upload-assets.sh [all|wine-stable|wine-cef|steam]" >&2; exit 2 ;;
+  all)      pack_wine_stable; pack_wine_cef ;;
+  *) echo "usage: upload-assets.sh [all|wine-stable|wine-cef]" >&2; exit 2 ;;
 esac
-echo "==> Assets uploaded. Slim builds (UNCORK_SLIM=1) and fresh Steam installs will now fetch them."
+echo "==> Assets uploaded. Slim builds (UNCORK_SLIM=1) will now fetch them."

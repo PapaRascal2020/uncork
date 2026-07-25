@@ -1,0 +1,21 @@
+# Funding for Uncork. Uncomment and fill in a line to show a "Sponsor" button on
+# the repo. Everything is commented out until a channel is live, so no broken
+# button appears in the meantime.
+#
+# GitHub Sponsors (0% platform fee; runs on Stripe). The value is the GitHub
+# account or org enrolled in Sponsors. The Sponsor button only appears once that
+# account's Sponsors profile is approved and published; until then this is inert.
+# Swap to the Haijahr Limited org slug if you enroll the org instead of the account.
+github: PapaRascal2020
+#
+# Ko-fi page name (the part after ko-fi.com/):
+# ko_fi: your-ko-fi-name
+#
+# Open Collective slug (the part after opencollective.com/):
+# open_collective: uncork
+#
+# Buy Me a Coffee username:
+# buy_me_a_coffee: your-name
+#
+# Any other links (a Stripe payment link, for example) go here:
+# custom: ["https://example.com/donate"]

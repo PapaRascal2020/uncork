@@ -15,9 +15,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/gptk.sh"   # D3DMetal launch helpers
 
 # --- gogdl (GOG CLI), RELOCATABLE ------------------------------------------
 # Same trick as legendary (see epic.sh): the bundled venv's shebangs hardcode the
-# build machine's path, so we run gogdl with the system CLT python3 (3.9) + the
-# bundled packages on PYTHONPATH, invoking the console script directly. Works on
-# any Mac with the Xcode Command Line Tools, no venv rebuild, no network.
+# build machine's path, so we run gogdl with Uncork's own relocatable Python
+# (require_python, fetched on demand, no Xcode CLT) + the bundled packages on
+# PYTHONPATH, invoking the console script directly. Works on any Mac, no venv rebuild.
 # Prefer a bundled venv (payload); else the per-user one; provision on demand if
 # neither exists (a source clone ships no engine/). Python version dir is globbed.
 GOG_VENV="$ENGINE_DIR/gogdl-venv"
@@ -25,10 +25,9 @@ GOG_VENV="$ENGINE_DIR/gogdl-venv"
 [[ -x "$GOG_VENV/bin/gogdl" ]] || bash "$(dirname "${BASH_SOURCE[0]}")/ensure-cli.sh" gogdl >&2 || true
 GOG_SCRIPT="$GOG_VENV/bin/gogdl"
 GOG_SP="$(ls -d "$GOG_VENV"/lib/python*/site-packages 2>/dev/null | head -1)"
-PY="/usr/bin/python3"
+require_python   # fetches a relocatable Python if none is present (no Xcode CLT needed)
 [[ -f "$GOG_SCRIPT" && -d "$GOG_SP" ]] || die "gogdl unavailable (could not provision it)."
-[[ -x "$PY" ]] || die "Python 3 not found. Install the Xcode Command Line Tools: xcode-select --install"
-GOGDL=(env "PYTHONPATH=$GOG_SP" "$PY" "$GOG_SCRIPT")
+GOGDL=(env "PYTHONPATH=$GOG_SP" "$UNCORK_PYTHON" "$GOG_SCRIPT")
 
 # GOG games share ONE bottle (a launcher's whole library lives in its own bottle,
 # per Uncork's bottle model). DRM-free games are Metal-ready via the engine.
@@ -41,6 +40,17 @@ BOTTLE="$BOTTLES_DIR/$BOTTLE_NAME"
 GOGDL_CONFIG_PATH="${GOGDL_CONFIG_PATH:-${UNCORK_DATA:-$HOME/Library/Application Support/Uncork}/gogdl}"
 mkdir -p "$GOGDL_CONFIG_PATH"
 AUTH="$GOGDL_CONFIG_PATH/auth.json"
+
+# One-time: confirm gogdl actually imports under Uncork's Python (bundled venv built
+# for an older Python, run on the fetched relocatable one). Fail clearly at setup,
+# not mid-launch. Marker in the writable config dir keeps it to a single check.
+if [[ ! -f "$GOGDL_CONFIG_PATH/.uncork-pyok" ]]; then
+  if env PYTHONPATH="$GOG_SP" "$UNCORK_PYTHON" -c "import gogdl" 2>/dev/null; then
+    : > "$GOGDL_CONFIG_PATH/.uncork-pyok"
+  else
+    die "The GOG client (gogdl) could not load under Uncork's Python. Reprovision it: bash scripts/ensure-cli.sh gogdl"
+  fi
+fi
 
 # --- lightweight commands that don't need Wine -----------------------------
 case "${1:-}" in

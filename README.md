@@ -179,10 +179,25 @@ all welcome.
 See **[CONTRIBUTING.md](CONTRIBUTING.md)** for how to report a game, add a fix, or add
 a store, and `docs/DEVELOPERS.md` for the architecture.
 
+## Acknowledgements
+
+Uncork stands on a lot of open-source work: [Wine](https://www.winehq.org/) and the
+[Gcenx](https://github.com/Gcenx) macOS builds, [DXMT](https://github.com/3Shain/dxmt),
+[DXVK](https://github.com/doitsujin/dxvk), [MoltenVK](https://github.com/KhronosGroup/MoltenVK),
+and the [legendary](https://github.com/derrod/legendary) and
+[gogdl](https://github.com/Heroic-Games-Launcher/heroic-gogdl) clients. Special thanks
+to **CodeWeavers**, whose CrossOver work funds most of upstream Wine. Fixes we make go
+back upstream wherever we can (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+
 ## License
 
 Uncork is licensed under **GPL-3.0** (see `LICENSE`). It bundles and orchestrates
 third-party components (Wine, DXVK, DXMT, MoltenVK, and the Epic/GOG command-line
-clients), each under its own license, and downloads Apple's Game Porting Toolkit at
-runtime rather than redistributing it. The full component list, licenses, and
-upstream sources are in `THIRD-PARTY-NOTICES.md`.
+clients), each under its own license. It does **not** redistribute Apple's Game
+Porting Toolkit or Valve's Steam client: those are downloaded from Apple/Gcenx and
+from Valve, respectively, on the user's own machine. The full component list,
+licenses, and upstream sources are in `THIRD-PARTY-NOTICES.md`.
+
+Uncork is an independent project and is **not affiliated with or endorsed by** Valve,
+Epic Games, GOG, Ubisoft, EA, Apple, or CodeWeavers. All trademarks belong to their
+respective owners.

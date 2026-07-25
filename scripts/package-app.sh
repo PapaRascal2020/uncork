@@ -122,11 +122,16 @@ PLIST
 chmod -R u+w "$APP" 2>/dev/null || true
 xattr -cr "$APP" 2>/dev/null || true
 
-# Ad-hoc codesign. We strip absolute symlinks from the payload above, so `--deep`
+# Codesign. Default is an ad-hoc signature (identity "-"), which is all a developer
+# needs for local builds. Set UNCORK_SIGN_ID to sign with a real identity instead
+# (e.g. a Developer ID for a release; scripts/release.sh does exactly that and adds
+# notarization). We strip absolute symlinks from the payload above, so `--deep`
 # succeeds. A FAILED sign leaves a broken signature and macOS shows a BLANK app
 # icon, which is exactly the bug this avoids. Report failure instead of hiding it.
+SIGN_ID="${UNCORK_SIGN_ID:--}"
+[[ "$SIGN_ID" == "-" ]] || echo "==> Signing with identity: $SIGN_ID"
 codesign --remove-signature "$APP" >/dev/null 2>&1 || true
-codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
+codesign --force --deep --sign "$SIGN_ID" "$APP" >/dev/null 2>&1 || true
 # The first --deep pass can seal inconsistently while nested Python-venv files are
 # still settling (bundled gogdl/legendary venvs), leaving "code has no resources"
 # invalid. A second chmod+xattr+sign reliably fixes it, so verify and re-sign once.
@@ -134,7 +139,7 @@ if ! codesign -v "$APP" >/dev/null 2>&1; then
   chmod -R u+w "$APP" 2>/dev/null || true
   xattr -cr "$APP" 2>/dev/null || true
   codesign --remove-signature "$APP" >/dev/null 2>&1 || true
-  codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
+  codesign --force --deep --sign "$SIGN_ID" "$APP" >/dev/null 2>&1 || true
 fi
 codesign -v "$APP" >/dev/null 2>&1 || echo "!! codesign still invalid - app icon may render blank." >&2
 

@@ -4,8 +4,12 @@
 # app be lean: Wine + D3DMetal aren't bundled, the setup wizard fetches them
 # here. Idempotent: no-ops if already installed. Emits @@STEP@@ progress.
 #
-# The Gcenx game-porting-toolkit Wine (LGPL, redistributable) already bundles a
-# working Apple D3DMetal, so nothing from Apple's Developer site is needed.
+# We fetch this from Gcenx's game-porting-toolkit release, not from us: Uncork does
+# not host or redistribute it. The Wine portion is LGPL, but the bundled D3DMetal is
+# APPLE's (under Apple's Game Porting Toolkit license, not LGPL). Because of that we
+# do not ship or mirror D3DMetal; the open-source DXMT path (the wine-stable engine)
+# is Uncork's default DirectX backend, and this GPTk engine is fetched on demand
+# only for the games that need D3DMetal.
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/gptk.sh"   # GPTK_ROOT / GPTK_WINE (writable dir)
@@ -26,6 +30,8 @@ require_arm64
 require_rosetta
 
 step 5 "Downloading the graphics engine (Wine + D3DMetal, ~240 MB)…"
+preflight_network
+preflight_disk 3
 mkdir -p "$GPTK_ROOT"
 tarball="$GPTK_ROOT/gptk-wine.tar.xz"
 download_progress "$GPTK_URL" "$tarball" 5 88 "Downloading Wine + D3DMetal…" \

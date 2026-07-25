@@ -14,11 +14,11 @@ source "$(dirname "${BASH_SOURCE[0]}")/gptk.sh"   # D3DMetal launch helpers
 
 # --- legendary (Epic CLI), RELOCATABLE ---------------------------------------
 # The bundled legendary venv is a Python venv whose bin/ shebangs hardcode the
-# BUILD machine's path, dead on any other Mac. But it was built against the
-# system CLT Python (3.9.6, present on every Mac with Xcode CLT) and legendary is
-# effectively pure Python, so we run it with the system python3 + the bundled
-# packages on PYTHONPATH, invoking the console script directly (shebang ignored).
-# This works on any Mac with no venv rebuild and no network.
+# BUILD machine's path, dead on any other Mac. But legendary is effectively pure
+# Python, so we run it with Uncork's own relocatable Python (require_python,
+# fetched on demand, no Xcode CLT) plus the bundled packages on PYTHONPATH,
+# invoking the console script directly (shebang ignored). This works on any Mac
+# with no venv rebuild.
 # Prefer a bundled venv (payload); else the per-user one; provision it on demand
 # if neither exists (a source clone ships no engine/). The python version dir is
 # globbed, so it works whichever CLT python built the venv.
@@ -27,10 +27,9 @@ LEG_VENV="$ENGINE_DIR/legendary-venv"
 [[ -x "$LEG_VENV/bin/legendary" ]] || bash "$(dirname "${BASH_SOURCE[0]}")/ensure-cli.sh" legendary >&2 || true
 LEG_SCRIPT="$LEG_VENV/bin/legendary"
 LEG_SP="$(ls -d "$LEG_VENV"/lib/python*/site-packages 2>/dev/null | head -1)"
-PY="/usr/bin/python3"
+require_python   # fetches a relocatable Python if none is present (no Xcode CLT needed)
 [[ -f "$LEG_SCRIPT" && -d "$LEG_SP" ]] || die "legendary unavailable (could not provision it)."
-[[ -x "$PY" ]] || die "Python 3 not found. Install the Xcode Command Line Tools: xcode-select --install"
-LEG=(env "PYTHONPATH=$LEG_SP" "$PY" "$LEG_SCRIPT")
+LEG=(env "PYTHONPATH=$LEG_SP" "$UNCORK_PYTHON" "$LEG_SCRIPT")
 
 # Epic runs in its OWN bottle, separate from Steam. Steam and Epic games can
 # need different Wine configs, and legendary (unlike Steam) needs no running
@@ -44,6 +43,18 @@ BOTTLE="$BOTTLES_DIR/$BOTTLE_NAME"
 # the environment; the dev default keeps it beside the venv.
 export LEGENDARY_CONFIG_PATH="${LEGENDARY_CONFIG_PATH:-$ENGINE_DIR/legendary}"
 mkdir -p "$LEGENDARY_CONFIG_PATH"
+
+# One-time: confirm legendary actually imports under Uncork's Python (the bundled
+# venv was built for an older Python; we run it on the fetched relocatable one).
+# Fail clearly here at setup rather than deep inside a launch. Marker lives in the
+# writable config dir so it runs once, not on every launch.
+if [[ ! -f "$LEGENDARY_CONFIG_PATH/.uncork-pyok" ]]; then
+  if env PYTHONPATH="$LEG_SP" "$UNCORK_PYTHON" -c "import legendary" 2>/dev/null; then
+    : > "$LEGENDARY_CONFIG_PATH/.uncork-pyok"
+  else
+    die "The Epic client (legendary) could not load under Uncork's Python. Reprovision it: bash scripts/ensure-cli.sh legendary"
+  fi
+fi
 
 # Point legendary at the Epic bottle + our bundled Wine.
 #   - disable_auto_crossover: on macOS legendary tries to launch via CrossOver by
@@ -79,7 +90,7 @@ fi
 # DIRECTLY through GPTk Wine with our env intact, the path proven to hit
 # D3DMetal (D3D11, "AMD Compatibility Mode"). legendary still handles list/install.
 # Resolve a field (install_path/executable) from legendary's installed.json for $app.
-read_field() { python3 -c "import json,sys; print(json.load(open('$LEGENDARY_CONFIG_PATH/installed.json')).get('$app',{}).get(sys.argv[1],''))" "$1" 2>/dev/null; }
+read_field() { py -c "import json,sys; print(json.load(open('$LEGENDARY_CONFIG_PATH/installed.json')).get('$app',{}).get(sys.argv[1],''))" "$1" 2>/dev/null; }
 
 # Epic auth/launch args for a DIRECT launch. Games using EOS / the Epic overlay
 # (e.g. Sonic Mania) refuse to start ("Error starting game from Epic Launcher")

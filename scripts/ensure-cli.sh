@@ -3,7 +3,7 @@
 # engine dir, so a source clone (which ships no engine/) still yields a working
 # app. No-op if the component is already present (bundled in the payload or already
 # fetched). DXVK comes from the upstream release; the Epic/GOG clients are pure
-# Python and are installed with the system python3.
+# Python and are installed with Uncork's relocatable Python (no Xcode CLT needed).
 #
 # Usage: ensure-cli.sh <dxvk|legendary|gogdl>
 set -euo pipefail
@@ -13,14 +13,15 @@ step() { printf '@@STEP@@ %s %s\n' "$1" "$2"; }
 ID="${1:?usage: ensure-cli.sh <dxvk|legendary|gogdl>}"
 DATA_ENGINE="$UNCORK_DATA_DIR/engine"
 CACHE="${UNCORK_CACHE:-$UNCORK_DATA_DIR/cache}"
-PY="/usr/bin/python3"                  # the CLT python the venvs are built against
+PY=""   # set by need_python to Uncork's relocatable Python (fetched on demand)
 mkdir -p "$DATA_ENGINE" "$CACHE"
 
-need_python() { [[ -x "$PY" ]] || die "Python 3 not found. Install the Xcode Command Line Tools: xcode-select --install"; }
+need_python() { require_python; PY="$UNCORK_PYTHON"; }
 
 case "$ID" in
   dxvk)
     [[ -d "$ENGINE_DIR/dxvk/x64" || -d "$DATA_ENGINE/dxvk/x64" ]] && { ok "DXVK already present."; exit 0; }
+    preflight_network
     URL="${DXVK_URL:-https://github.com/doitsujin/dxvk/releases/download/v3.0.2/dxvk-3.0.2.tar.gz}"
     step 10 "Downloading DXVK…"
     tb="$CACHE/dxvk.tar.gz"; tmp="$(mktemp -d)"
@@ -37,6 +38,7 @@ case "$ID" in
 
   legendary)
     [[ -x "$ENGINE_DIR/legendary-venv/bin/legendary" || -x "$DATA_ENGINE/legendary-venv/bin/legendary" ]] && { ok "legendary already present."; exit 0; }
+    preflight_network
     need_python
     step 10 "Setting up the Epic client (legendary)…"
     dest="$DATA_ENGINE/legendary-venv"; rm -rf "$dest"
@@ -48,6 +50,7 @@ case "$ID" in
 
   gogdl)
     [[ -x "$ENGINE_DIR/gogdl-venv/bin/gogdl" || -x "$DATA_ENGINE/gogdl-venv/bin/gogdl" ]] && { ok "gogdl already present."; exit 0; }
+    preflight_network
     need_python
     command -v git >/dev/null || die "git not found (needed to install gogdl). Install the Xcode Command Line Tools."
     step 10 "Setting up the GOG client (gogdl)…"

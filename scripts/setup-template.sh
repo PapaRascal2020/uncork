@@ -19,7 +19,7 @@ CATALOG="$PROJECT_ROOT/compat/store-templates.json"
 step 5 "Reading template '$ID'…"
 # Extract fields with python (handles both a standalone file and the catalog entry).
 read_field() {
-  python3 - "$USER_T" "$CATALOG" "$ID" "$1" <<'PY'
+  py - "$USER_T" "$CATALOG" "$ID" "$1" <<'PY'
 import json,sys
 user,catalog,tid,key=sys.argv[1:5]
 t=None

@@ -20,12 +20,14 @@ if [[ -d "$DEST_DIR/$ID" || -d "$DEST_DIR/wine-cef" && "$ID" == uncork-1.0-wine-
   ok "Engine '$ID' already present."; exit 0
 fi
 
-read_json() { python3 -c "import json,sys;d=json.load(open('$CATALOG'));print(d['engines'].get('$ID',{}).get('download',{}).get('$1','') or '')" 2>/dev/null; }
+read_json() { py -c "import json,sys;d=json.load(open('$CATALOG'));print(d['engines'].get('$ID',{}).get('download',{}).get('$1','') or '')" 2>/dev/null; }
 URL="$(read_json url)"; SHA="$(read_json sha256)"
 [[ -n "$URL" ]] || die "No download URL for engine '$ID' in engines.json (upload the bundle + set download.url)."
 
 tb="$(mktemp -d)/$ID.tar.gz"
 step 3 "Downloading engine $ID…"
+preflight_network
+preflight_disk 3
 download_progress "$URL" "$tb" 5 88 "Downloading $ID…" || die "Couldn't download engine '$ID'."
 if [[ -n "$SHA" ]]; then
   got="$(shasum -a 256 "$tb" | awk '{print $1}')"

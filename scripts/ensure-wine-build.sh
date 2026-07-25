@@ -19,7 +19,7 @@ step() { printf '@@STEP@@ %s %s\n' "$1" "$2"; }
 # already installed?
 if [[ -x "$DEST/bin/wine" ]]; then step 100 "$ID already installed."; ok "Wine build '$ID' already present."; exit 0; fi
 
-read_json() { python3 -c "import json,sys;d=json.load(open('$CATALOG'));print(d['builds'].get('$ID',{}).get('$1','') or '')" 2>/dev/null; }
+read_json() { py -c "import json,sys;d=json.load(open('$CATALOG'));print(d['builds'].get('$ID',{}).get('$1','') or '')" 2>/dev/null; }
 URL="$(read_json url)"; SUBTREE="$(read_json archive_subtree)"; NAME="$(read_json name)"
 [[ -n "$URL" ]] || die "No download URL for wine build '$ID' in wine-builds.json."
 

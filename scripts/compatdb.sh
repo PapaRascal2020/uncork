@@ -16,8 +16,12 @@ STORES_DB="${STORES_DB:-$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)/com
 # path the Swift app uses, so app + scripts agree without editing the shipped DB.
 COMPAT_OVERRIDES="${COMPAT_OVERRIDES:-$HOME/Library/Application Support/Uncork/overrides.json}"
 
+# These JSON lookups run through Uncork's Python (fetched on demand by lib.sh, which
+# defines py()/UNCORK_PYTHON). Define a fallback so compatdb.sh also works standalone.
+type py >/dev/null 2>&1 || py() { "${UNCORK_PYTHON:-/usr/bin/python3}" "$@"; }
+
 compat_get() {  # <appid> <field>
-  python3 - "$COMPAT_DB" "$1" "$2" <<'PY' 2>/dev/null
+  py - "$COMPAT_DB" "$1" "$2" <<'PY' 2>/dev/null
 import json,sys
 db,appid,field=sys.argv[1],sys.argv[2],sys.argv[3]
 try: d=json.load(open(db))
@@ -30,7 +34,7 @@ PY
 }
 
 compat_get_list() {  # <appid> <array-field>  -> one item per line
-  python3 - "$COMPAT_DB" "$1" "$2" <<'PY' 2>/dev/null
+  py - "$COMPAT_DB" "$1" "$2" <<'PY' 2>/dev/null
 import json,sys
 db,appid,field=sys.argv[1],sys.argv[2],sys.argv[3]
 try: d=json.load(open(db))
@@ -40,7 +44,7 @@ PY
 }
 
 compat_default() {  # <field>
-  python3 - "$COMPAT_DB" "$1" <<'PY' 2>/dev/null
+  py - "$COMPAT_DB" "$1" <<'PY' 2>/dev/null
 import json,sys
 db,field=sys.argv[1],sys.argv[2]
 try: d=json.load(open(db))
@@ -50,7 +54,7 @@ PY
 }
 
 compat_env() {  # <appid>  -> KEY=VALUE lines from games[appid].env (object)
-  python3 - "$COMPAT_DB" "$1" <<'PY' 2>/dev/null
+  py - "$COMPAT_DB" "$1" <<'PY' 2>/dev/null
 import json,sys
 db,appid=sys.argv[1],sys.argv[2]
 try: d=json.load(open(db))
@@ -61,7 +65,7 @@ PY
 
 # Store setup lookups (compat/stores.json). ---------------------------------
 store_get_list() {  # <store> <array-field>  -> one item per line
-  python3 - "$STORES_DB" "$1" "$2" <<'PY' 2>/dev/null
+  py - "$STORES_DB" "$1" "$2" <<'PY' 2>/dev/null
 import json,sys
 db,store,field=sys.argv[1],sys.argv[2],sys.argv[3]
 try: d=json.load(open(db))
@@ -76,7 +80,7 @@ store_prereqs() { store_get_list "$1" prereqs; }
 # Baseline winetricks verbs for EVERY store's D3DMetal prefix (top-level array in
 # stores.json), so most games run with no per-game config.
 gptk_baseline_verbs() {
-  python3 - "$STORES_DB" <<'PY' 2>/dev/null
+  py - "$STORES_DB" <<'PY' 2>/dev/null
 import json,sys
 try: d=json.load(open(sys.argv[1]))
 except Exception: sys.exit(0)
@@ -86,7 +90,7 @@ PY
 
 # User override lookups (the app writes COMPAT_OVERRIDES). Missing file = empty.
 compat_user_get() {  # <appid> <field>
-  python3 - "$COMPAT_OVERRIDES" "$1" "$2" <<'PY' 2>/dev/null
+  py - "$COMPAT_OVERRIDES" "$1" "$2" <<'PY' 2>/dev/null
 import json,sys,os
 f,appid,field=sys.argv[1],sys.argv[2],sys.argv[3]
 if not os.path.exists(f): sys.exit(0)
@@ -124,7 +128,7 @@ compat_winver() {  # <appid>
 PROFILES_DB="${PROFILES_DB:-$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)/compat/profiles.json}"
 
 profile_get() {  # <profile-id> <field>  -> that profile's field (e.g. backend, label)
-  python3 - "$PROFILES_DB" "$1" "$2" <<'PY' 2>/dev/null
+  py - "$PROFILES_DB" "$1" "$2" <<'PY' 2>/dev/null
 import json,sys
 db,pid,field=sys.argv[1],sys.argv[2],sys.argv[3]
 try: d=json.load(open(db))
@@ -175,7 +179,7 @@ compat_launch_args() {  # <appid>
 # Per-game DLL overrides as a WINEDLLOVERRIDES fragment ("d3d11=n;xaudio2_9=b"),
 # read from the user overrides file's dll_overrides object. Empty if none.
 compat_dll_overrides() {  # <appid>
-  python3 - "$COMPAT_OVERRIDES" "$1" <<'PY' 2>/dev/null
+  py - "$COMPAT_OVERRIDES" "$1" <<'PY' 2>/dev/null
 import json,sys,os
 f,appid=sys.argv[1],sys.argv[2]
 if not os.path.exists(f): sys.exit(0)

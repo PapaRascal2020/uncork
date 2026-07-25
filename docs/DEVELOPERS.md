@@ -155,9 +155,12 @@ Two axes:
 
 Shipped templates:
 
-- **Steam** (built-in): the ~2 GB client snapshot is downloaded on first run
-  (not bundled) from `STEAM_CLIENT_SNAPSHOT_URL` and unpacked into the writable
-  data dir. Games launch via `play.sh`.
+- **Steam** (built-in): installed from Valve's **official** `SteamSetup.exe`,
+  downloaded from Valve's CDN on the user's machine and run in the bottle
+  (`setup-steam.sh`). We do not host or redistribute the Steam client (the Steam
+  Subscriber Agreement forbids it). A pre-built snapshot can be used for dev/offline
+  by placing it on disk or setting `STEAM_CLIENT_SNAPSHOT_URL` to your own hosting;
+  there is no default. Games launch via `play.sh`.
 - **Epic** (built-in): the `legendary` CLI (`scripts/epic.sh`), run relocatably.
   Pass `--platform Windows` to pull Windows builds on a Mac.
 - **GOG** (built-in): the `gogdl` CLI (`scripts/gog.sh`).
@@ -290,8 +293,10 @@ a deliberate step, not a frozen window.
 
 ## Build and run
 
-Requirements: macOS on Apple Silicon, Xcode command-line tools, Rosetta 2
-(`softwareupdate --install-rosetta --agree-to-license`).
+Requirements to **build**: macOS on Apple Silicon and a Swift toolchain (Xcode or its
+command-line tools). Requirements to **run** the built app: nothing to install by
+hand. Rosetta 2 is installed automatically on first run if missing, and the app does
+not depend on the Xcode command-line tools (see "First-run dependencies" below).
 
 ```bash
 # dev run (uses the source tree as the payload)
@@ -325,8 +330,26 @@ and re-fetches ours over it, so an install broken by an earlier (Gcenx-fetching)
 slim build self-heals on the next launch once the asset is hosted.
 
 DXVK and the Epic/GOG clients are also fetched on demand by `scripts/ensure-cli.sh`
-(DXVK from the upstream release; `legendary` and `gogdl` installed with the system
-`python3`), so a bare source clone builds a fully working app without the build kit.
+(DXVK from the upstream release), so a bare source clone builds a fully working app
+without the build kit.
+
+### First-run dependencies (no dev tools required)
+
+An end user installs one `.app`; nothing else. The two host dependencies are handled
+automatically:
+
+- **Rosetta 2**: `require_rosetta` (lib.sh) installs it on first run
+  (`softwareupdate --install-rosetta --agree-to-license`) and only fails, with a
+  clear message, if a managed-Mac policy blocks it.
+- **Python**: the Epic/GOG clients (`legendary`, `gogdl`) are pure Python, and Uncork
+  runs them against its **own** relocatable Python rather than the Xcode command-line
+  tools' `python3`. `scripts/ensure-python.sh` fetches an arm64
+  `python-build-standalone` (3.11) into the per-user engine dir on demand; `lib.sh`
+  resolves it via `UNCORK_PYTHON` / the `py()` helper (order: bundled payload, fetched
+  per-user, then a system `python3` if one happens to exist). The clients run as
+  `PYTHONPATH=<bundled site-packages> "$UNCORK_PYTHON" <console-script>`, so no venv
+  is rebuilt. `scripts/ensure-wine-engine.sh` also runs `preflight_network` /
+  `preflight_disk` before the first big download.
 
 The on-demand assets (`wine-stable` with DXMT, `wine-cef`, and the Steam client
 snapshot) are hosted on GitHub releases;
@@ -343,6 +366,32 @@ Gatekeeper rejects). `scripts/make-build-kit.sh` assembles
 cruft (`app/.build`, `thirdparty/`, wine source, gptk, bottles) and a
 `BUILD-KIT-README.md`. The recipient unpacks it and runs `bash scripts/package-app.sh`
 to get a locally-signed `Uncork.app`.
+
+### Signed release for end users (notarized DMG)
+
+Local builds are **ad-hoc signed** by default (identity `-`), which is all a
+developer needs. To sign a normal `package-app.sh` build with your own identity
+instead (without notarizing), set `UNCORK_SIGN_ID`, for example
+`UNCORK_SIGN_ID="Apple Development: you (TEAMID)" bash scripts/package-app.sh`.
+
+For a download a non-technical user can open with no Gatekeeper warnings, the app
+must be signed with an Apple **Developer ID** and **notarized** by Apple (which needs
+an Apple Developer Program membership). `scripts/release.sh` does this end to end,
+driven by environment variables so no identity or secret lives in the repo:
+
+```bash
+UNCORK_SIGN_ID="Developer ID Application: Haijahr Limited (TEAMID)" \
+UNCORK_NOTARY_PROFILE=UNCORK_NOTARY \
+bash scripts/release.sh          # produces a signed, notarized build/Uncork.dmg
+```
+
+It builds the **slim** app (so it isn't trying to notarize hundreds of bundled Wine
+binaries), signs every inner Mach-O with the hardened runtime, notarizes, staples,
+and packages a drag-to-Applications DMG. The engines still download on first use via
+curl, which does not quarantine them, so a notarized app runs them without a prompt.
+For that first run to work, the release assets must already be hosted (see
+`scripts/upload-assets.sh`). The script is written to Apple's documented flow but is
+unproven until run against a real Developer ID.
 
 ## How to contribute a fix
 
