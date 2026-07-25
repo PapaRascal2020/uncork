@@ -494,6 +494,7 @@ struct SteamSetupSheet: View {
     @ObservedObject private var installer = StoreInstaller.shared
     @State private var loggedIn = SteamAuth.isLoggedIn()
     @State private var account = SteamAuth.accountName()
+    @State private var confirmReprovision = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -532,6 +533,19 @@ struct SteamSetupSheet: View {
             }
         }
         .padding(22).frame(width: 480, height: 380)
+        .confirmationDialog("Reprovision Steam from scratch?",
+                            isPresented: $confirmReprovision, titleVisibility: .visible) {
+            Button("Reprovision", role: .destructive) {
+                StoreInstaller.shared.applyFix(key: "steam-reprovision",
+                                               script: "steam-reprovision.sh",
+                                               bottle: "steam",
+                                               label: "Reprovisioning Steam from scratch…",
+                                               extraEnv: ["UNCORK_REPROVISION_CONFIRM": "1"])
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Wipes the Steam client and reinstalls it from Valve (your installed games and logins are kept). Use this to fix a broken client or test a fresh install.")
+        }
     }
 
     // Self-service Steam fixes on the sign-in sheet, so a user never touches a
@@ -548,6 +562,31 @@ struct SteamSetupSheet: View {
         fixRow(key: "steam-cef", script: "steam-cef-fix.sh",
                prompt: "Login still black?", button: "Reapply CEF fix",
                label: "Reapplying the Steam CEF fix…")
+        reprovisionRow
+    }
+
+    // Destructive "start over": wipe the Steam client and reinstall it from Valve
+    // (keeps games + logins). Behind a confirmation so it can't be hit by accident.
+    @ViewBuilder private var reprovisionRow: some View {
+        let fix = installer.status("steam-reprovision")
+        if fix.phase == .installing {
+            VStack(alignment: .leading, spacing: 4) {
+                ProgressView(value: fix.fraction)
+                Text(fix.message).font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+        } else {
+            HStack(spacing: 8) {
+                Text("Still broken?").font(.system(size: 11)).foregroundStyle(.secondary)
+                Button("Reprovision Steam") { confirmReprovision = true }
+                    .font(.system(size: 11, weight: .semibold)).buttonStyle(.link).foregroundStyle(.orange)
+                if fix.phase == .done {
+                    Label("done", systemImage: "checkmark.circle.fill")
+                        .font(.system(size: 11)).foregroundStyle(.green).labelStyle(.titleAndIcon)
+                } else if fix.phase == .failed {
+                    Text(fix.message).font(.system(size: 11)).foregroundStyle(.orange)
+                }
+            }
+        }
     }
 
     @ViewBuilder private func fixRow(key: String, script: String,

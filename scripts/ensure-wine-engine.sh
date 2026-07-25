@@ -41,6 +41,10 @@ case "$ID" in
     # downloads. download_progress emits @@STEP@@ lines the app renders.
     download_progress "$WINE_STABLE_ASSET_URL" "$tb" 5 65 "Downloading Wine + DirectX (DXMT)…" \
       || die "Couldn't download wine-stable from $WINE_STABLE_ASSET_URL (host it with: scripts/upload-assets.sh wine-stable)."
+    # Verify the bytes are EXACTLY Uncork's published DXMT engine, not stock Gcenx, a
+    # corrupted/partial download, or a substituted file. The expected hash is pinned in
+    # scripts/asset-checksums.env (written by upload-assets.sh at publish time).
+    verify_asset_sha "$tb" WINE_STABLE_SHA256
     step 70 "Extracting Wine…"
     rm -rf "$dest"; mkdir -p "$dest"
     tar -xf "$tb" -C "$dest" || die "Extraction failed."   # wine tree (bin/lib/share) at archive root
@@ -62,6 +66,7 @@ case "$ID" in
     tb="$CACHE/wine-cef.tar.gz"
     curl -L --fail --progress-bar "$WINE_CEF_URL" -o "$tb" \
       || die "Couldn't download wine-cef from $WINE_CEF_URL (host the tarball on the release to enable CEF launchers on slim builds)."
+    verify_asset_sha "$tb" WINE_CEF_SHA256
     step 70 "Extracting Wine (CEF)…"
     rm -rf "$dest"; mkdir -p "$dest"
     tar -xf "$tb" -C "$dest" || die "Extraction of wine-cef failed."

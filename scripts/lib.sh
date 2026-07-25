@@ -272,6 +272,28 @@ preflight_network() {
   die "No internet connection. Uncork needs to download its engine on first run. Connect and retry."
 }
 
+# Verify a downloaded asset is EXACTLY Uncork's published file, by SHA-256 against a
+# value pinned in scripts/asset-checksums.env (written by upload-assets.sh at publish
+# time). This is what guarantees a fetched engine is OURS (the DXMT build), not stock
+# Gcenx, a corrupted/partial download, or a substituted file. If no pin exists yet
+# (an older build predating the pins), it warns and continues so it never breaks an
+# un-pinned asset; the caller's structural check (e.g. winemetal.so) still applies.
+verify_asset_sha() {  # <file> <KEY-in-asset-checksums.env>
+  local file="$1" key="$2" env_file exp got here
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  env_file="$here/asset-checksums.env"
+  exp=""
+  [[ -f "$env_file" ]] && exp="$(grep "^${key}=" "$env_file" 2>/dev/null | head -1 | cut -d= -f2 | tr -d '[:space:]')"
+  if [[ -z "$exp" ]]; then
+    warn "No pinned checksum for $key; skipping byte-verification (structural check still applies)."
+    return 0
+  fi
+  got="$(shasum -a 256 "$file" 2>/dev/null | awk '{print $1}')"
+  [[ "$got" == "$exp" ]] \
+    || die "Checksum mismatch for $(basename "$file"): got ${got:-none}, expected $exp. Refusing it (not Uncork's verified engine)."
+  ok "Verified engine is Uncork's ($key)."
+}
+
 require_wine() {
   # Fetch wine-stable on demand if it is not present (slim build / source clone).
   # Also self-heal a per-user engine that lacks DXMT: an older slim build fetched

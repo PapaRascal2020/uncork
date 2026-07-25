@@ -75,7 +75,7 @@ final class StoreInstaller: ObservableObject {
     /// Run a bottle repair/patch script (e.g. steam-fix-updates.sh) with the same
     /// live `@@STEP@@` progress as an install, tracked under its own key so it does
     /// not collide with the store's install status. Bottle-scoped via BOTTLE_NAME.
-    func applyFix(key: String, script: String, bottle: String, label: String) {
+    func applyFix(key: String, script: String, bottle: String, label: String, extraEnv: [String: String] = [:]) {
         guard procs[key] == nil else { return }
         statuses[key] = Status(phase: .installing, fraction: 0.02, message: "Starting…")
         lastError[key] = nil
@@ -84,7 +84,8 @@ final class StoreInstaller: ObservableObject {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/bash")
         p.arguments = ["\(Paths.scripts)/\(script)"]
-        p.environment = Paths.scriptEnvironment(["BOTTLE_NAME": bottle])
+        var env = extraEnv; env["BOTTLE_NAME"] = bottle
+        p.environment = Paths.scriptEnvironment(env)
 
         let pipe = Pipe(); p.standardOutput = pipe; p.standardError = pipe
         let handle = pipe.fileHandleForReading

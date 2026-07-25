@@ -29,6 +29,20 @@ gh auth status >/dev/null 2>&1 || { echo "!! gh is not authenticated. Run: gh au
 
 STAGE="$(mktemp -d)"; trap 'rm -rf "$STAGE"' EXIT
 
+# Pin each asset's SHA-256 so the app can verify a download is EXACTLY our engine
+# (see verify_asset_sha in lib.sh). Written here at publish time so the pin can never
+# drift from the uploaded bytes. Commit scripts/asset-checksums.env after uploading.
+CKSUM_FILE="$ROOT/scripts/asset-checksums.env"
+record_checksum() {  # <KEY> <file>
+  local key="$1" file="$2" sha
+  sha="$(shasum -a 256 "$file" | awk '{print $1}')"
+  touch "$CKSUM_FILE"
+  grep -v "^${key}=" "$CKSUM_FILE" > "$CKSUM_FILE.tmp" 2>/dev/null || true
+  mv "$CKSUM_FILE.tmp" "$CKSUM_FILE" 2>/dev/null || true
+  printf '%s=%s\n' "$key" "$sha" >> "$CKSUM_FILE"
+  echo "    pinned $key=$sha (scripts/asset-checksums.env; commit this)"
+}
+
 # Create the release for a tag if it does not exist yet, then upload (clobber).
 publish() { # <tag> <title> <file>
   local tag="$1" title="$2" file="$3"
@@ -51,6 +65,7 @@ pack_wine_stable() {
   local out="$STAGE/wine-stable.tar.gz"
   echo "==> Packing wine-stable with DXMT (~400 MB, this takes a while)…"
   tar -czf "$out" -C "$src" .          # wine tree (bin/lib/share) lands at the archive root
+  record_checksum WINE_STABLE_SHA256 "$out"
   publish "wine-stable" "Uncork wine-stable (DXMT)" "$out"
 }
 
@@ -60,6 +75,7 @@ pack_wine_cef() {
   local out="$STAGE/wine-cef.tar.gz"
   echo "==> Packing wine-cef (wswine.bundle at archive root)…"
   tar -czf "$out" -C "$src" .          # wswine.bundle lands at the archive root
+  record_checksum WINE_CEF_SHA256 "$out"
   publish "wine-cef" "Uncork wine-cef" "$out"
 }
 
