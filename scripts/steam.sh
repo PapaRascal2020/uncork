@@ -34,8 +34,11 @@ log "Launching Steam in bottle: $BOTTLE_NAME  ${*:+(args: $*)}"
 # crashes intermittently under Wine (steamwebhelper → takes down steam.exe). Software
 # CEF rendering is far more stable, the standard Steam-on-Wine fix. Not added for a
 # bare `-shutdown` (no UI needed).
+# WINEMSYNC=0: Steam's self-update downloader deadlocks under Wine's msync, so the
+# client loops on "Updating Steam" (manifest downloads, packages never do). Disable
+# msync/esync for the client; games use their own launch path and keep their sync.
 if [[ "$*" == *"-shutdown"* ]]; then
-  wine_run "$STEAM_EXE" "$@"
+  WINEMSYNC=0 WINEESYNC=0 wine_run "$STEAM_EXE" "$@"
 else
-  wine_run "$STEAM_EXE" -cef-disable-gpu "$@"
+  WINEMSYNC=0 WINEESYNC=0 wine_run "$STEAM_EXE" -cef-disable-gpu "$@"
 fi

@@ -378,7 +378,12 @@ steam_ensure_running() {
       # rendering (-cef-disable-gpu): the GPU compositor crash-loops steamwebhelper
       # under Wine and takes steam.exe down with it.
       STEAM_BOTTLE="$BOTTLE" bash "$(dirname "${BASH_SOURCE[0]}")/steam-tame.sh" >/dev/null 2>&1 || true
-      wine_run "$steam_exe" -silent -no-browser -cef-disable-gpu >/dev/null 2>&1 &
+      # WINEMSYNC=0: Steam's multi-threaded self-update downloader deadlocks under
+      # Wine's msync (Mach semaphores). The manifest downloads, but the package
+      # (.zip.vz) fetches hang and the client restart-loops on "Updating Steam".
+      # Disabling msync for the CLIENT lets the update finish. Games launch via
+      # their own path (GPTk) and keep their sync settings, so this is client-only.
+      WINEMSYNC=0 WINEESYNC=0 wine_run "$steam_exe" -silent -no-browser -cef-disable-gpu >/dev/null 2>&1 &
     fi
     for _ in $(seq 1 30); do steam_is_up && break; sleep 1; done
     rmdir "$lock" 2>/dev/null || true
