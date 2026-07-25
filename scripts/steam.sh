@@ -29,16 +29,18 @@ if [[ "$*" != *"-shutdown"* ]]; then
   STEAM_BOTTLE="$BOTTLE" bash "$(dirname "${BASH_SOURCE[0]}")/steam-tame.sh" >/dev/null 2>&1 || true
 fi
 
-# Once the client is fully installed (its CEF runtime, bin/cef, is present), freeze
-# further self-updates. Steam's post-update self-relaunch drops our -cef-disable-gpu,
-# so the CEF login window renders black and re-updating loops. Inhibiting the update
-# once the client exists stops that loop, so Steam boots straight to login with our
-# flag, exactly like a known-good bottle. We only do this AFTER bin/cef exists, so a
-# fresh install still runs its first update normally.
+# Once the update has FULLY completed (Steam writes package/*.installed at the very
+# end), freeze further self-updates. Steam's post-update self-relaunch drops our
+# -cef-disable-gpu, so the CEF login renders black and re-updating loops. Inhibiting
+# once the client is COMPLETE stops that loop and boots straight to login with our
+# flag, like a known-good bottle. We wait for the .installed marker (not just
+# bin/cef): freezing mid-update leaves a half-installed client that also renders
+# black. A fresh install runs its first update normally until the marker appears.
 STEAM_ROOT="$(dirname "$STEAM_EXE")"
-if [[ -d "$STEAM_ROOT/bin/cef" && ! -f "$STEAM_ROOT/steam.cfg" ]]; then
+if [[ ! -f "$STEAM_ROOT/steam.cfg" ]] && \
+   compgen -G "$STEAM_ROOT/package/steam_client_win*.installed" >/dev/null 2>&1; then
   printf 'BootStrapperInhibitAll=enable\nBootStrapperForceSelfUpdate=disable\n' > "$STEAM_ROOT/steam.cfg"
-  log "Froze Steam self-update (client installed) to stop the CEF relaunch loop."
+  log "Froze Steam self-update (client fully installed) to stop the CEF relaunch loop."
 fi
 
 log "Launching Steam in bottle: $BOTTLE_NAME  ${*:+(args: $*)}"

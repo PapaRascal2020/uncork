@@ -90,7 +90,12 @@ install_from_official_installer() {
   for need in "$STEAM_EXE" "$STEAM_ROOT/bin" "$STEAM_ROOT/public"; do
     [[ -e "$need" ]] || die "Steam install incomplete (missing ${need##*/}). Please retry."
   done
-  ok "Steam client installed from Valve's official installer."
+  ok "Steam bootstrapper installed from Valve's official installer."
+  # The bootstrapper alone is not a complete client; its in-Wine self-update stalls.
+  # Complete it by staging the official packages from Valve's CDN with native
+  # networking, then letting Steam's own bootstrapper install them.
+  bash "$(dirname "${BASH_SOURCE[0]}")/steam-stage-client.sh" \
+    || warn "Couldn't fully complete the client now. Open Steam and use 'Finish Steam setup' on the sign-in screen if the login is blank."
 }
 
 # --- Provision the Steam client ---------------------------------------------

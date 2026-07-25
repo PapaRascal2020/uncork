@@ -542,11 +542,11 @@ struct SteamSetupSheet: View {
     //     with -cef-disable-gpu).
     @ViewBuilder private var steamTroubleshooting: some View {
         Divider().padding(.vertical, 2)
-        fixRow(key: "steam-fix", script: "steam-fix-updates.sh",
-               prompt: "Stuck on “Updating Steam”?", button: "Apply patch",
-               label: "Applying the Steam update patch…")
+        fixRow(key: "steam-stage", script: "steam-stage-client.sh",
+               prompt: "Stuck updating, or login blank?", button: "Finish Steam setup",
+               label: "Completing the Steam client from Valve…")
         fixRow(key: "steam-cef", script: "steam-cef-fix.sh",
-               prompt: "Login window black?", button: "Reapply CEF fix",
+               prompt: "Login still black?", button: "Reapply CEF fix",
                label: "Reapplying the Steam CEF fix…")
     }
 
