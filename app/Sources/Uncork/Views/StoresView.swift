@@ -491,6 +491,7 @@ struct EpicSetupSheet: View {
 /// Steam sign-in guidance (Steam has no code-flow like Epic, so we guide + open it).
 struct SteamSetupSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var installer = StoreInstaller.shared
     @State private var loggedIn = SteamAuth.isLoggedIn()
     @State private var account = SteamAuth.accountName()
 
@@ -526,10 +527,44 @@ struct SteamSetupSheet: View {
                 }
                 Text("Didn't work? Make sure Rosetta is installed (see Setup). If the Steam window never appeared, quit any running Steam and try “Open Steam” again.")
                     .font(.system(size: 11)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                steamUpdateFix
                 Spacer()
             }
         }
         .padding(22).frame(width: 480, height: 380)
+    }
+
+    // Self-service fix for the "Updating Steam" window that opens, never downloads,
+    // then closes (Steam's online self-update failing under Wine). Applies the
+    // known-good repair to the Steam bottle: restore a local client snapshot if one
+    // is present and disable the broken self-update. Bottle-scoped only.
+    @ViewBuilder private var steamUpdateFix: some View {
+        let fix = installer.status("steam-fix")
+        Divider().padding(.vertical, 2)
+        if fix.phase == .installing {
+            VStack(alignment: .leading, spacing: 4) {
+                ProgressView(value: fix.fraction)
+                Text(fix.message).font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+        } else {
+            HStack(spacing: 8) {
+                Text("Getting stuck on “Updating Steam”?")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                Button("Apply patch") {
+                    StoreInstaller.shared.applyFix(key: "steam-fix",
+                                                   script: "steam-fix-updates.sh",
+                                                   bottle: "steam",
+                                                   label: "Applying Steam patch…")
+                }
+                .font(.system(size: 11, weight: .semibold)).buttonStyle(.link)
+                if fix.phase == .done {
+                    Label("applied", systemImage: "checkmark.circle.fill")
+                        .font(.system(size: 11)).foregroundStyle(.green).labelStyle(.titleAndIcon)
+                } else if fix.phase == .failed {
+                    Text(fix.message).font(.system(size: 11)).foregroundStyle(.orange)
+                }
+            }
+        }
     }
 
     private func step(_ n: Int, _ text: String) -> some View {

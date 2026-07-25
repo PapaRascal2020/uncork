@@ -72,6 +72,47 @@ final class StoreInstaller: ObservableObject {
         }
     }
 
+    /// Run a bottle repair/patch script (e.g. steam-fix-updates.sh) with the same
+    /// live `@@STEP@@` progress as an install, tracked under its own key so it does
+    /// not collide with the store's install status. Bottle-scoped via BOTTLE_NAME.
+    func applyFix(key: String, script: String, bottle: String, label: String) {
+        guard procs[key] == nil else { return }
+        statuses[key] = Status(phase: .installing, fraction: 0.02, message: "Starting…")
+        lastError[key] = nil
+        ActivityStore.shared.show(label, seconds: 4)
+
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/bash")
+        p.arguments = ["\(Paths.scripts)/\(script)"]
+        p.environment = Paths.scriptEnvironment(["BOTTLE_NAME": bottle])
+
+        let pipe = Pipe(); p.standardOutput = pipe; p.standardError = pipe
+        let handle = pipe.fileHandleForReading
+        handle.readabilityHandler = { [weak self] h in
+            let d = h.availableData
+            guard !d.isEmpty, let s = String(data: d, encoding: .utf8) else { return }
+            self?.parse(id: key, chunk: s)
+        }
+        p.terminationHandler = { [weak self] proc in
+            DispatchQueue.main.async {
+                handle.readabilityHandler = nil
+                self?.procs[key] = nil
+                let ok = proc.terminationStatus == 0
+                var st = self?.statuses[key] ?? Status()
+                st.phase = ok ? .done : .failed
+                if ok { st.fraction = 1; st.message = "Done" }
+                else { st.message = self?.lastError[key] ?? "Patch failed" }
+                self?.statuses[key] = st
+                ActivityStore.shared.show(ok ? "Steam patch applied ✓" : "Steam patch failed")
+            }
+        }
+        procs[key] = p
+        do { try p.run() } catch {
+            statuses[key] = Status(phase: .failed, fraction: 0, message: "Couldn't start the patch")
+            procs[key] = nil
+        }
+    }
+
     private func parse(id: String, chunk: String) {
         for raw in chunk.split(whereSeparator: \.isNewline) {
             let line = String(raw)
