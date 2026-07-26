@@ -496,6 +496,10 @@ struct SteamSetupSheet: View {
     @State private var account = SteamAuth.accountName()
     @State private var confirmReprovision = false
 
+    // <= 8 GB machines run the low-resource profile; warn that the Steam client is
+    // memory-heavy under Wine and will be flaky here (games/other stores are lighter).
+    private var lowRAM: Bool { ProcessInfo.processInfo.physicalMemory / 1_073_741_824 <= 8 }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -504,6 +508,16 @@ struct SteamSetupSheet: View {
                 Spacer()
                 Button { dismiss() } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
                     .buttonStyle(.plain)
+            }
+
+            if lowRAM {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                    Text("Limited RAM on this Mac. The Steam client is memory-heavy under Wine and can be unstable here even after tuning, 16 GB or more is recommended. Your games and the Epic/GOG stores are much lighter.")
+                        .font(.system(size: 11)).fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.orange.opacity(0.12)))
             }
 
             if loggedIn {
@@ -532,7 +546,7 @@ struct SteamSetupSheet: View {
                 Spacer()
             }
         }
-        .padding(22).frame(width: 480, height: 430)
+        .padding(22).frame(width: 480, height: 470)
         .confirmationDialog("Reprovision Steam from scratch?",
                             isPresented: $confirmReprovision, titleVisibility: .visible) {
             Button("Reprovision", role: .destructive) {
