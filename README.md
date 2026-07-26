@@ -108,10 +108,16 @@ such.
 
 - Apple Silicon Mac (M1 or newer).
 - macOS 14 (Sonoma) or later.
-- Xcode command-line tools: `xcode-select --install`
-- Rosetta 2: `softwareupdate --install-rosetta --agree-to-license`
-  (the engine runs x86-64 Wine under Rosetta).
+- **Memory: 16 GB or more recommended.** The engine runs x86-64 Wine under Rosetta,
+  and the Steam client adds a Chromium-based UI under Wine that is memory-hungry. On
+  **8 GB** Macs the Steam *client* is flaky even with Uncork's low-resource profile and
+  reduced settings, expect a rough experience (games launched through the engine are
+  much lighter, and Epic/GOG are far less demanding than the Steam client). 16 GB+ is
+  substantially smoother.
+- Rosetta 2 (installed automatically on first run).
 - An internet connection for first-run setup and installing your games.
+- To build from source you also need a Swift toolchain (Xcode or its command-line
+  tools). Running a built app needs no developer tools.
 
 ## Installing and building
 
