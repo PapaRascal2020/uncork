@@ -43,30 +43,18 @@ if [[ ! -f "$STEAM_ROOT/steam.cfg" ]] && \
   log "Froze Steam self-update (client fully installed) to stop the CEF relaunch loop."
 fi
 
-log "Launching Steam in bottle: $BOTTLE_NAME  ${*:+(args: $*)}"
-# `-cef-disable-gpu`: Steam's UI is CEF/Chromium; its GPU-accelerated compositor
-# crashes intermittently under Wine (steamwebhelper → takes down steam.exe). Software
-# CEF rendering is far more stable, the standard Steam-on-Wine fix. Not added for a
-# bare `-shutdown` (no UI needed).
-# WINEMSYNC=0: Steam's self-update downloader deadlocks under Wine's msync, so the
-# client loops on "Updating Steam" (manifest downloads, packages never do). Disable
-# msync/esync for the client; games use their own launch path and keep their sync.
-# Stability recipe for the Steam client under Wine on Apple Silicon (from
-# Steam-Win-Silicon), applied in full, not piecemeal:
-#   -noverifyfiles     stop the bootstrapper reverting our CEF shim (also immutable)
-#   -no-cef-sandbox    the CEF sandbox crashes under Wine
-#   -forcedesktopscaling 1  avoid HiDPI scaling glitches
-#   steamservice=d     disable steamservice.dll (flaky under Wine, can crash the client)
-#   winemenubuilder.exe=d  don't hijack file associations / spawn menu builder
-#   dcomp=n            DirectComposition native (CEF present path is steadier)
-STEAM_OVERRIDES="steamservice=d;winemenubuilder.exe=d;dxgi=b;d3d11=b;d3d10core=b;dcomp=n"
-# Run with sync ON (like games). We only forced sync OFF earlier to get the in-Wine
-# update download through; the client is frozen now (no self-update), and forcing
-# sync off starves steamwebhelper's network/auth threads and hangs sign-in. Sync on
-# matches the working Steam-Win-Silicon config.
+# Machine-aware client config (steam-profile.sh). "standard" (capable Macs) is the
+# minimal known-good launch the M5 works on: `-cef-disable-gpu -noverifyfiles`.
+# "low-resource" (<=8 GB Macs) adds the stability flags + -noreactlogin. Default is
+# standard, so a capable machine can never get another machine's experimental flags.
+source "$(dirname "${BASH_SOURCE[0]}")/steam-profile.sh"
+steam_profile_config "$(steam_detect_profile)"
+
+log "Launching Steam in bottle: $BOTTLE_NAME (profile: $STEAM_PROFILE)  ${*:+(args: $*)}"
 if [[ "$*" == *"-shutdown"* ]]; then
-  WINEMSYNC=1 WINEESYNC=1 wine_run "$STEAM_EXE" "$@"
+  wine_run "$STEAM_EXE" "$@"
+elif [[ -n "$STEAM_PROFILE_OVERRIDES" ]]; then
+  WINEDLLOVERRIDES="$STEAM_PROFILE_OVERRIDES" wine_run "$STEAM_EXE" $STEAM_PROFILE_ARGS "$@"
 else
-  WINEMSYNC=1 WINEESYNC=1 WINEDLLOVERRIDES="$STEAM_OVERRIDES" \
-    wine_run "$STEAM_EXE" -cef-disable-gpu -noverifyfiles -no-cef-sandbox -forcedesktopscaling 1 "$@"
+  wine_run "$STEAM_EXE" $STEAM_PROFILE_ARGS "$@"
 fi

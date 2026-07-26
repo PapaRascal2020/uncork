@@ -7,7 +7,10 @@ set -euo pipefail
 # --- Paths -------------------------------------------------------------------
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENGINE_DIR="${ENGINE_DIR:-$PROJECT_ROOT/engine}"
-BOTTLES_DIR="${BOTTLES_DIR:-$PROJECT_ROOT/bottles}"
+# Default to the per-user data dir (where the app actually keeps bottles), not the
+# source tree, so a standalone script run targets the real bottle. The app always
+# sets BOTTLES_DIR explicitly, so this only affects direct/manual runs.
+BOTTLES_DIR="${BOTTLES_DIR:-${UNCORK_DATA:-$HOME/Library/Application Support/Uncork}/bottles}"
 
 # The Steam bottle: one Wine prefix hosting the Steam client + ALL its games
 # (they install into C:\Program Files (x86)\Steam\steamapps\common inside it).
@@ -400,13 +403,16 @@ steam_ensure_running() {
       # rendering (-cef-disable-gpu): the GPU compositor crash-loops steamwebhelper
       # under Wine and takes steam.exe down with it.
       STEAM_BOTTLE="$BOTTLE" bash "$(dirname "${BASH_SOURCE[0]}")/steam-tame.sh" >/dev/null 2>&1 || true
-      # Sync ON (like games). The client is frozen (self-update suppressed), so we no
-      # longer disable sync for the update-download deadlock; forcing it off starves
-      # steamwebhelper's network/auth threads and hangs sign-in. Matches the working
-      # Steam-Win-Silicon config. Software CEF (-cef-disable-gpu) + the single-process
-      # shim keep the UI rendering; -no-cef-sandbox + steamservice=d keep it stable.
-      WINEMSYNC=1 WINEESYNC=1 WINEDLLOVERRIDES="steamservice=d;winemenubuilder.exe=d;dxgi=b;d3d11=b;d3d10core=b;dcomp=n" \
-        wine_run "$steam_exe" -silent -no-browser -cef-disable-gpu -noverifyfiles -no-cef-sandbox -forcedesktopscaling 1 >/dev/null 2>&1 &
+      # Machine-aware client config (steam-profile.sh): standard (minimal, capable Macs)
+      # or low-resource (<=8 GB: stability flags + lighter login). Default is standard,
+      # so a capable machine keeps the known-good config; experiments stay per-profile.
+      source "$(dirname "${BASH_SOURCE[0]}")/steam-profile.sh"
+      steam_profile_config "$(steam_detect_profile)"
+      if [[ -n "$STEAM_PROFILE_OVERRIDES" ]]; then
+        WINEDLLOVERRIDES="$STEAM_PROFILE_OVERRIDES" wine_run "$steam_exe" -silent -no-browser $STEAM_PROFILE_ARGS >/dev/null 2>&1 &
+      else
+        wine_run "$steam_exe" -silent -no-browser $STEAM_PROFILE_ARGS >/dev/null 2>&1 &
+      fi
     fi
     for _ in $(seq 1 30); do steam_is_up && break; sleep 1; done
     rmdir "$lock" 2>/dev/null || true
