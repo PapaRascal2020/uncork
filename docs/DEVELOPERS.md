@@ -160,7 +160,12 @@ Shipped templates:
   (`setup-steam.sh`). We do not host or redistribute the Steam client (the Steam
   Subscriber Agreement forbids it). A pre-built snapshot can be used for dev/offline
   by placing it on disk or setting `STEAM_CLIENT_SNAPSHOT_URL` to your own hosting;
-  there is no default. Games launch via `play.sh`.
+  there is no default. Games launch via `play.sh`. The Steam client config is
+  machine-aware (`scripts/steam-profile.sh`): `standard` (minimal) on capable Macs,
+  `low-resource` (stability flags + `-noreactlogin`) auto-selected on <=8 GB Macs;
+  override with `UNCORK_STEAM_PROFILE`. A store's crash logs (Steam bootstrap log +
+  crash-dump assert messages) are viewable in-app from the store card's
+  "View logs / diagnostics" menu item (`StoreDiagnostics` / `StoreDiagnosticsView`).
 - **Epic** (built-in): the `legendary` CLI (`scripts/epic.sh`), run relocatably.
   Pass `--platform Windows` to pull Windows builds on a Mac.
 - **GOG** (built-in): the `gogdl` CLI (`scripts/gog.sh`).

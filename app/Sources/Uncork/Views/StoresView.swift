@@ -134,6 +134,8 @@ struct LauncherCard: View {
     /// Choose where this store's games download (Epic/GOG). nil = not offered.
     var onInstallLocation: (() -> Void)? = nil
 
+    @State private var showDiag = false
+
     // connected == nil → store has no sign-in (use install state).
     // connected == true → signed in.  connected == false → sign-in needed.
     private var isAuthStore: Bool { connected != nil }
@@ -192,6 +194,9 @@ struct LauncherCard: View {
                         Spacer()
                         Menu {
                             Button { onOpen() } label: { Label("Details & compatibility", systemImage: "info.circle") }
+                            if StoreDiagnostics.hasDiagnostics(for: launcher.id) {
+                                Button { showDiag = true } label: { Label("View logs / diagnostics", systemImage: "stethoscope") }
+                            }
                             if let onInstallLocation {
                                 Button(action: onInstallLocation) { Label("Install location…", systemImage: "folder") }
                             }
@@ -212,6 +217,9 @@ struct LauncherCard: View {
         .background(RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous).fill(Color.secondary.opacity(0.08)))
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.card, style: .continuous).strokeBorder(.white.opacity(0.06)))
+        .sheet(isPresented: $showDiag) {
+            StoreDiagnosticsView(storeID: launcher.id, storeName: launcher.name)
+        }
     }
 
     private func primaryAction() {
